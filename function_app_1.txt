@@ -1,0 +1,27 @@
+query - TYPE:MATNBR && TEXT2:M00000005938
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:SUBIDREL && TEXT2:M00000005938
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:MATNBR && TEXT2:M00000005938
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:SUBIDREL && TEXT2:M00000005938
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:MATNBR && TEXT2:M00000005938
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:SUBIDREL && TEXT2:M00000005938
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:NAMPROD && TEXT1:123* && SUBCT:REAL_SUB
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:MATNBR && TEXT3:123* && SUBCT:REAL_SUB
+params - {'rows': 2147483647}
+corename - solr_product
+query - TYPE:MATNBR && TEXT3:123* && SUBCT:REAL_SUB
+params - {'rows': 2147483647}
+corename - solr_product
