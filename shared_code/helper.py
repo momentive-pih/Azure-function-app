@@ -13,11 +13,13 @@ def querying_solr_data(query,params):
         result = json.dumps(list(response))
         df_product_combine=pd.read_json(result,dtype=str)
         for item in unwanted_fields:
-            df_product_combine=df_product_combine[~df_product_combine["TEXT1"].str.contains(item,case=False,na=False,regex=False)]
+            unwanted_df=df_product_combine[df_product_combine["TEXT1"].str.contains(item,case=False,na=False,regex=False)]
+            real_spec=list(unwanted_df["TEXT2"].unique())
+            df_product_combine=df_product_combine[~df_product_combine["TEXT2"].isin(real_spec)]
         if len(df_product_combine.columns)!=len(product_column):
             dummy=pd.DataFrame([],columns=product_column)
-            df_product_combine=pd.concat([df_product_combine,dummy]).fillna("-")
-        df_product_combine=df_product_combine.fillna("-")
+            df_product_combine=pd.concat([df_product_combine,dummy]).replace({"nan":"-"})
+        df_product_combine=df_product_combine.replace({"nan":"-"})
         return df_product_combine
     except Exception as e:
         return df_product_combine
@@ -34,7 +36,7 @@ def product_level_creation(product_df,product_category_map,type,subct,key,level_
             temp_df=product_df
         
         temp_df.drop_duplicates(inplace=True)
-        temp_df=temp_df.replace({"nan":"-"})
+        # temp_df=temp_df.replace({"nan":"-"})
         total_count=0
         display_category=''
         json_category=''

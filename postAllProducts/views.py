@@ -60,8 +60,9 @@ def all_products(data):
                     break
         if len(search)>=2 and key_found=='': 
             replace={" ":"\ ","/":"\/","*":"\*"}
-            search_value = search.translate(str.maketrans(replace))       
-            query=f'TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*'
+            search_value = search.translate(str.maketrans(replace))   
+            # query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && TYPE:(NUMCAS || NAMPROD || MATNBR)'    
+            query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && -TYPE:SUBIDREL'
             logging.info(query)
             print(query)
             df_product_combine=querying_solr_data(query,solr_product_params)

@@ -26,6 +26,7 @@ querying_solr_data=helper.querying_solr_data
 product_level_creation=helper.product_level_creation
 solr_product_params=config.solr_product_params
 replace_character_for_querying=helper.replace_character_for_querying
+pipe_delimitter=config.pipe_delimitter
 
 def selected_products(data_json):
     try:
@@ -128,7 +129,7 @@ def selected_products(data_json):
 
             elif cas_level_flag=='s' and cas_count==1:
                 #finding real spec id
-                query=f'TYPE:SUBIDREL && TEXT1:{cas_pspec}'
+                query=f'TYPE:SUBIDREL && TEXT1:{cas_pspec} && SUBCT:REAL_SUB'
                 temp_df=querying_solr_data(query,params)
                 spec_rel_list=temp_df[["TEXT1","TEXT2"]].values.tolist()
                 real_spec_list = list(temp_df["TEXT2"].unique())
@@ -192,69 +193,153 @@ def finding_material_details_using_real_specid(product_rspec,params):
     return material_df
 
 def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,spec_rel_list=[],real_spec_list=[]):
-    result={}
-    json_make={}
-    json_list=[]
-    active_material=0
-    if m_flag=="material_level":
-        active_material+=1
-        material_info["real_Spec_Id"]="".join(real_spec_list)
-        result["material_Level"]=[material_info]
-    else:
-        columns=["TEXT1","TEXT4","TEXT3","TEXT2"]
-        material_info=material_info[columns]
-        material_info=material_info.drop_duplicates()
-        material_info=material_info.fillna("-")
-        material_result=material_info.values.tolist()
-        for number,desc,bdt,specid in material_result:
-            json_make["material_Number"]=number
-            json_make["description"]=desc
-            desc=desc.strip()
-            if len(desc)>0 and desc[0]!="^":
-                active_material+=1
-            json_make["bdt"]=bdt
-            json_make["real_Spec_Id"]=specid
-            json_list.append(json_make)
-            json_make={}
-        result["material_Level"]=json_list
+    try:
+        result={}
+        json_make={}
         json_list=[]
-    if p_flag=="product_level":
-        product_info["no_Active_Material"]=active_material
-        result["product_Level"]=[product_info]
-    else:
-        columns=["TEXT1","TEXT2","TEXT3"]
-        product_info=product_info[columns]
-        product_info=product_info.drop_duplicates()
-        product_info=product_info.fillna("-")
-        product_result=product_info.values.tolist()
-        for namprod,spec,syn in product_result:
-            json_make["real_Spec_Id"]=spec
-            json_make["namprod"]=namprod
-            json_make["synonyms"]=syn
-            json_make["no_Active_Material"]=active_material
-            json_list.append(json_make)
-            json_make={}
-        result["product_Level"]=json_list
-        json_list=[]    
+        active_material=0
+        spec_nam_json={}
+        # spec_active_mat_json={}
+        if p_flag=="product_level":
+            # product_info["no_Active_Material"]=active_material
+            result["product_Level"]=[product_info]
+        else:
+            columns=["TEXT1","TEXT2","TEXT3"]
+            product_info=product_info[columns]
+            product_info=product_info.drop_duplicates()
+            product_info=product_info.fillna("-")
+            product_result=product_info.values.tolist()
+            for namprod,spec,syn in product_result:
+                try:
+                    json_make["real_Spec_Id"]=spec
+                    json_make["namprod"]=namprod
+                    json_make["synonyms"]=syn
+                    # json_make["no_Active_Material"]=active_material
+                    json_list.append(json_make)
+                    if spec_nam_json.get(spec) == None:
+                        spec_nam_json[spec]=[]
+                        spec_nam_json[spec].append(namprod)
+                    else:
+                        nam_list=spec_nam_json.get(spec)
+                        nam_list.append(namprod)
+                        spec_nam_json[spec]=list(set(nam_list))              
+                    json_make={}
+                except Exception as e:
+                    print(e)
+            result["product_Level"]=json_list
+            json_list=[]    
 
-    if c_flag=="cas_level":
-        cas_info["real_Spec_Id"]=real_spec_list
-        result["cas_Level"]=[cas_info]
-    else:
-        columns=["TEXT2","TEXT1","TEXT3"]
-        cas_info=cas_info[columns]
-        cas_info=cas_info.drop_duplicates()
-        cas_info=cas_info.fillna("-")
-        cas_result=cas_info.values.tolist()
-        for pspec,cas,chemical in cas_result:
-            real_spec_list=[real for pure,real in spec_rel_list if pure==pspec]
-            real_spec_list=list(set(real_spec_list))
-            json_make["pure_Spec_Id"]=pspec
-            json_make["cas_Number"]=cas
-            json_make["chemical_Name"]=chemical
-            json_make["real_Spec_Id"]=real_spec_list
-            json_list.append(json_make)
-            json_make={}
-        result["cas_Level"]=json_list
-        json_list=[]
-    return result
+        def spec_id_namprod_combination(real,spec_nam_list):
+            for nam in spec_nam_json.get(real):
+                spec_nam_list.append(real+pipe_delimitter+nam)
+            return spec_nam_list
+
+        if m_flag=="material_level":
+            active_material+=1
+            spec_nam_list=[]
+            for specid in real_spec_list:
+                if(spec_nam_json.get(specid)):
+                    spec_nam_list=spec_id_namprod_combination(specid,spec_nam_list)
+                    material_info["spec_Nam_List"]=spec_nam_list
+                    material_info["real_Spec_Id"]=specid+" - "+(", ".join(spec_nam_json.get(specid)))                    
+            result["material_Level"]=[material_info]
+        else:
+            columns=["TEXT1","TEXT4","TEXT3","TEXT2"]
+            material_info=material_info[columns]
+            material_info=material_info.drop_duplicates()
+            material_info=material_info.fillna("-")
+            material_result=material_info.values.tolist()
+            for number,desc,bdt,specid in material_result:
+                try:
+                    spec_nam_list=[]
+                    json_make["material_Number"]=number
+                    json_make["description"]=desc
+                    json_make["bdt"]=bdt  
+                    if(spec_nam_json.get(specid)):
+                        spec_nam_list=spec_id_namprod_combination(specid,spec_nam_list)
+                        # for nam in spec_nam_json.get(specid):
+                        #     spec_nam_list.append(specid+"|"+nam) 
+                        json_make["spec_Nam_List"]=spec_nam_list
+                        json_make["real_Spec_Id"]=specid+" - "+(", ".join(spec_nam_json.get(specid)))  
+                    else:
+                        json_make={}
+                        continue 
+                           
+                    json_list.append(json_make)
+                    desc=desc.strip()
+                    # if spec_active_mat_json.get(specid) == None:
+                    #     if len(desc)>0 and desc[0]!="^":
+                    #         spec_active_mat_json[specid]=1
+                    #     else:
+                    #         spec_active_mat_json[specid]=0
+                    # else:
+                    #     if len(desc)>0 and desc[0]!="^":
+                    #         spec_active_mat_json[specid]=spec_active_mat_json.get(specid)+1
+                    json_make={}
+                except Exception as e:
+                    print(e)
+            result["material_Level"]=json_list
+            json_list=[]
+        
+        if c_flag=="cas_level":
+            for real in real_spec_list:
+                try:
+                    each_spec_nam_list=[]
+                    if(spec_nam_json.get(real)):
+                        each_spec_nam_list=spec_id_namprod_combination(real,each_spec_nam_list)
+                        spec_nam_list=spec_nam_list+each_spec_nam_list
+                    else:
+                        continue
+                except Exception as e:
+                    print(e)
+            cas_info["real_Spec_Id"]=spec_nam_list
+            result["cas_Level"]=[cas_info]
+        else:
+            columns=["TEXT2","TEXT1","TEXT3"]
+            cas_info=cas_info[columns]
+            cas_info=cas_info.drop_duplicates()
+            cas_info=cas_info.fillna("-")
+            cas_result=cas_info.values.tolist()
+            for pspec,cas,chemical in cas_result:
+                try:        
+                    real_spec_list=[real for pure,real in spec_rel_list if pure==pspec]
+                    real_spec_list=list(set(real_spec_list))
+                    spec_nam_list=[]
+                    for real in real_spec_list:
+                        each_spec_nam_list=[]
+                        if(spec_nam_json.get(real)):
+                            each_spec_nam_list=spec_id_namprod_combination(real,each_spec_nam_list)
+                            spec_nam_list=spec_nam_list+each_spec_nam_list
+                        else:
+                            continue
+                    json_make["pure_Spec_Id"]=pspec
+                    json_make["cas_Number"]=cas
+                    json_make["chemical_Name"]=chemical
+                    json_make["spec_Nam_List"]=spec_nam_list
+                    json_list.append(json_make)
+                    json_make={}
+                except Exception as e:
+                    print(e)
+            result["cas_Level"]=json_list
+            json_list=[] 
+     
+        # #setting active material in product level
+        # product_list=result["product_Level"]
+        # for item in range(len(product_list)):
+        #     specid=product_list[item].get('real_Spec_Id')
+        #     result["product_Level"][item]["no_Active_Material"]=spec_active_mat_json.get(specid)
+        
+        #setting spec list
+        count=0
+        for item in spec_nam_json:
+            for data in spec_nam_json.get(item):
+                count+=1
+                json_make["id"]=count
+                json_make["name"]=item+pipe_delimitter+data
+                json_list.append(json_make)
+                json_make={}
+        result["selected_Spec_List"]=json_list
+
+        return result
+    except Exception as e:
+        return result

@@ -36,4 +36,6 @@ category_type = ["MATNBR","NUMCAS","NAMPROD"]
 search_category = ["TEXT1","TEXT2","TEXT3"]
 selected_categories=["BDT*","MAT*","NAM*","CAS*","CHEM*","RSPEC*","PSPEC*","SYN*","SPEC*"]
 solr_product_column = ",".join(product_column)
-solr_product_params={"rows":2147483647,"fl":solr_product_column}
+max_rows=2147483647
+solr_product_params={"rows":max_rows,"fl":solr_product_column}
+pipe_delimitter=" | "
