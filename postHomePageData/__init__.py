@@ -5,25 +5,54 @@ from . import get_spec_list
 import pandas as pd
 # from postAllProducts import views
 import os 
+from __app__.postselectedProducts import views
+from __app__.shared_code import settings as config
+
 product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","SUBCT"]
 solr_product_column = ",".join(product_column)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
-        logging.info('postSelectedSpecList function processing a request.')
+        logging.info('postHomePageData function processing a request.')
         result=[]
         req_body = req.get_json()
-        if type(req_body) is list:
-            specid_list,namprod_list,specid_details = get_spec_list.find_specid(req_body)
-            if len(specid_details)>0:
-                home_details=home_page_details(specid_list[0])
-        elif type(req_body) is dict:
-            home_details=home_page_details(req_body)
-        result = json.dumps(home_details)
+        if len(req_body)>0:
+            req_body_content= req_body[0]
+            if "name" in req_body_content:
+                all_details=views.selected_products(req_body)
+                spec_nam_json = finding_all_product_related_details(all_details)
+        # if type(req_body) is list:
+        #     specid_list,namprod_list,specid_details = get_spec_list.find_specid(req_body)
+        #     if len(specid_details)>0:
+        #         home_details=home_page_details(specid_list[0])
+        # elif type(req_body) is dict:
+        #     home_details=home_page_details(req_body)
+        result = json.dumps(spec_nam_json)
     except Exception as e:
         logging.error(str(e))
     return func.HttpResponse(result,mimetype="application/json")
 
+def finding_all_product_related_details(all_details):
+    if len(all_details)>0:
+        product_json=all_details
+        spec_list=product_json["selected_spec_list"]
+        #take default spec_id
+        spec_json={}
+        if len(spec_list)>0:
+            spec_id_split=spec_list[0].get("name").split(config.pipe_delimitter)
+            spec_id=spec_id_split[0]
+            spec_json[spec_id]=[]
+            for item in spec_list:
+               if spec_id in item.get("name"):
+                   spec_id_split=item.get("name").split(config.pipe_delimitter)
+                   if len(spec_id_split)>1:
+                    namprod=spec_id_split[1]
+                    spec_json[spec_id].append(namprod)
+        return spec_json
+
+
+
+    
 def get_cas_details_on_selected_spec(product_rspec,params):
     try:
         cas_list=[]

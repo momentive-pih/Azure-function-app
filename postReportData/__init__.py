@@ -1,14 +1,13 @@
 import logging
 import json
 import azure.functions as func
-# from . import views
-# from postAllProducts import views
 import os 
 import pysolr
-solr_url_config="https://172.23.2.4:8983/solr"
-#Solar url connection and access
-solr_document_variant=pysolr.Solr(solr_url_config+'/sap_document_variant/', timeout=10,verify=False)
-solr_product= pysolr.Solr(solr_url_config+"/product_information/", timeout=10,verify=False)
+from __app__.shared_code import settings as config
+from __app__.shared_code import helper
+solr_document_variant=config.solr_document_variant
+get_data_from_core=helper.get_data_from_core
+construct_common_level_json=helper.construct_common_level_json
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
@@ -21,91 +20,40 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(str(e))
     return func.HttpResponse(result,mimetype="application/json")
 
-def spec_constructor(req_body):
-    try:
-        last_specid=''
-        namlist=[]
-        speclist_data=[]
-        spec_body=req_body.get("Spec_id")
-        for item in spec_body:           
-            spec_details=item.get("name").split(" | ")
-            spec_id=spec_details[0]
-            namprod=spec_details[1]
-            if (last_specid!=spec_id) and last_specid!='':
-                namstr=", ".join(namlist)
-                speclist_data.append([last_specid,namstr])
-                namlist=[]
-                namlist.append(namprod)
-            else:
-                namlist.append(namprod)             
-            last_specid=spec_id
-        namstr=", ".join(namlist)
-        speclist_data.append([last_specid,namstr])
-        return speclist_data
-    except Exception as e:
-        return speclist_data
-
-def get_material_details_on_selected_spec(product_rspec,params):
-    try:
-        query=f'TYPE:MATNBR && TEXT2:{product_rspec}'
-        matinfo=solr_product.search(query,**params)
-        matstr=[]
-        bdt_list=[]
-        material_list=[]
-        material_details=[]
-        for i in list(matinfo):
-            bdt=str(i.get("TEXT3")).strip()
-            bdt_list.append(bdt)
-            matnumber=str(i.get("TEXT1"))
-            material_list.append(matnumber)
-            desc=str(i.get("TEXT4"))
-            matjson={
-                        "bdt":bdt,
-                        "material_number":matnumber,
-                        "description":desc,
-                    }
-            if bdt:
-                bstr=bdt+" - "+matnumber+" - "+desc
-                matstr.append(bstr)
-            material_details.append(matjson)
-        material_list=list(set(material_list))
-        bdt_list=list(set(bdt_list))
-        return material_list,bdt_list,matstr,material_details
-    except Exception as e:
-        return [],[],[],[]
-
 def get_report_data_details(req_body):
     try:
-        speclist_data=spec_constructor(req_body)
+        all_details_json,spec_list,material_list=construct_common_level_json(req_body) 
         report_list=[]
-        material_list=[]
-        params={"rows":2147483647,"fl":"TEXT1,TEXT2,TEXT3,TEXT4"}
-        for spec,namprod in speclist_data:
-            material_list,bdt_list,matstr,material_details=get_material_details_on_selected_spec(spec,params)
-            material_list=list(set(material_list))
-            material_col=", ".join(material_list)
-            report_column_str="REPTY,RGVID,LANGU,VERSN,STATS,RELON"
-            params={"rows":2147483647,"fl":report_column_str}
-            query=f'SUBID:{spec}'
-            result = list(solr_document_variant.search(query,**params))           
-            for data in result:
+        spec_list_query=(config.or_demiliter).join(spec_list)
+        params={"fl":config.report_column_str}
+        core=config.solr_document_variant
+        query=f'SUBID:({spec_list_query})'
+        result,result_df=get_data_from_core(core,query,params)
+        for data in result:
+            try:
                 if data.get("LANGU").strip()=="E":
-                    date_parse=data.get("RELON").strip()
+                    date_parse=data.get("RELON")
+                    date_parse=date_parse.strip()
                     if len(date_parse)==8:
                         date_format=date_parse[6:8]+"-"+date_parse[4:6]+"-"+date_parse[0:4]
                     else:
                         date_format=date_parse
+                    specid=data.get("SUBID")
+                    namprod=all_details_json.get(specid).get("namprod")
+                    material=all_details_json.get(specid).get("material_number")
                     report_json={
-                        "category":data.get("REPTY").strip(),
-                        "generation_Variant":data.get("RGVID").strip(),
-                        "language":data.get("LANGU").strip(),
-                        "version":data.get("VERSN").strip(),
-                        "released_on":date_format,
-                        "spec_id":str(spec+" - "+namprod),
-                        "material_details":material_col,
-                        "status":data.get("STATS").strip(),
+                        "category":str(data.get("REPTY")).strip(),
+                        "generation_Variant":str(data.get("RGVID")).strip(),
+                        "language":str(data.get("LANGU")).strip(),
+                        "version":str(data.get("VERSN")).strip(),
+                        "released_on":date_format,             
+                        "spec_id":specid+(config.hypen_delimiter)+(config.comma_delimiter).join(namprod),
+                        "material_details":(config.comma_delimiter).join(material),
+                        "status":str(data.get("STATS")).strip(),
                     }
                     report_list.append(report_json)
+            except Exception as e:
+                print(e)
         return report_list
     except Exception as e:
         print(e)

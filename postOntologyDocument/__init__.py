@@ -140,7 +140,7 @@ def get_assigned_ontology_document(req_body):
             for item in range(len(df_ontology)):
                 category=df_ontology.loc[item,"CATEGORY"]
                 datastr=json.loads(df_ontology.loc[item,"DATA_EXTRACT"])
-                filename=datastr.get("subject","-")
+                filename=datastr.get("file_name","-")
                 product=df_ontology.loc[item,"PRODUCT"]
                 path=str(datastr.get("file_path","-")).strip()
                 date=datastr.get("Date","-")
@@ -182,7 +182,7 @@ def get_assigned_ontology_document(req_body):
             for item in range(len(df_ontology)):
                 category=df_ontology.loc[item,"CATEGORY"]
                 datastr=json.loads(df_ontology.loc[item,"DATA_EXTRACT"])
-                filename=datastr.get("subject","-")
+                filename=datastr.get("file_name","-")
                 product=df_ontology.loc[item,"PRODUCT"]
                 path=str(datastr.get("file_path","-")).strip()
                 date=datastr.get("Date","-")
