@@ -5,7 +5,7 @@ import pandas as pd
 import os 
 import pysolr
 
-solr_url_config="https://172.23.2.4:8983/solr"
+solr_url_config="https://172.23.2.8:8983/solr"
 solr_product= pysolr.Solr(solr_url_config+"/product_information/", timeout=10,verify=False)
 solr_notification_status=pysolr.Solr(solr_url_config+'/sap_notification_status/', timeout=10,verify=False)
 solr_unstructure_data=pysolr.Solr(solr_url_config+'/unstructure_processed_data/', timeout=10,verify=False)
@@ -16,6 +16,7 @@ solr_registration_tracker=pysolr.Solr(solr_url_config+'/registration_tracker/',t
 product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","SUBCT"]
 solr_product_column = ",".join(product_column)
 file_access_path="https://devstorpih001.blob.core.windows.net/"
+sas_token=r"?sv=2019-02-02&ss=b&srt=sco&sp=rl&se=2020-05-29T20:19:29Z&st=2020-04-02T12:19:29Z&spr=https&sig=aodIg0rDPVsNEJY7d8AerhD79%2FfBO9LZGJdx2j9tsCM%3D"
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
@@ -226,7 +227,7 @@ def get_toxicology_details(req_body):
                     datastr=json.loads(data.get("DATA_EXTRACT"))
                     path=datastr.get("file_path","-")
                     json_make["date_Of_Issue"]=datastr.get("Date","-")
-                    json_make["filename"]=file_access_path+path.replace("/dbfs/mnt/","")
+                    json_make["filename"]=file_access_path+path.replace("/dbfs/mnt/","")+sas_token
                     json_make["spec_Id"]=str(specid)+"-"+speclist_json[specid]
                     json_list.append(json_make)
                     json_make={}

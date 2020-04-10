@@ -3,7 +3,7 @@ import json
 import os
 import pysolr
 # solr_product= pysolr.Solr(os.environ["CONNECTIONSTRINGS:SOLRCONNECTIONSTRING"]+"/product_information/", timeout=10,verify=False)
-solr_product= pysolr.Solr("https://172.23.2.4:8983/solr/product_information/", timeout=10,verify=False)
+solr_product= pysolr.Solr("https://172.23.2.8:8983/solr/product_information/", timeout=10,verify=False)
 product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","SUBCT"]
 solr_product_column = ",".join(product_column)
 

@@ -4,7 +4,7 @@ import azure.functions as func
 import os 
 import pysolr
 import pandas as pd
-solr_url_config="https://172.23.2.4:8983/solr"
+solr_url_config="https://172.23.2.8:8983/solr"
 #Solar url connection and access
 solr_document_variant=pysolr.Solr(solr_url_config+'/sap_document_variant/', timeout=10,verify=False)
 solr_unstructure_data=pysolr.Solr(solr_url_config+'/unstructure_processed_data/', timeout=10,verify=False)

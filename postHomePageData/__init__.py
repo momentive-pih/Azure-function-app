@@ -7,9 +7,8 @@ import pandas as pd
 import os 
 from __app__.postselectedProducts import views
 from __app__.shared_code import settings as config
+from __app__.shared_code import helper
 
-product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","SUBCT"]
-solr_product_column = ",".join(product_column)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
@@ -19,38 +18,30 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         if len(req_body)>0:
             req_body_content= req_body[0]
             if "name" in req_body_content:
-                all_details=views.selected_products(req_body)
-                spec_nam_json = finding_all_product_related_details(all_details)
-        # if type(req_body) is list:
-        #     specid_list,namprod_list,specid_details = get_spec_list.find_specid(req_body)
-        #     if len(specid_details)>0:
-        #         home_details=home_page_details(specid_list[0])
-        # elif type(req_body) is dict:
-        #     home_details=home_page_details(req_body)
-        result = json.dumps(spec_nam_json)
+                basic_details=views.selected_products(req_body,"No")
+                arranged_level_json = rearrange_json(basic_details)
+                all_details_json,spec_list,material_list = helper.construct_common_level_json(arranged_level_json,"home_page")
+                home_page_data=home_page_details(all_details_json,spec_list,arranged_level_json)
+                result = json.dumps(home_page_data)
+            else:
+                all_details_json,spec_list,material_list = helper.construct_common_level_json(req_body_content)
+                home_page_data=home_page_details(all_details_json,spec_list,req_body_content)
+                result = json.dumps(home_page_data)   
     except Exception as e:
         logging.error(str(e))
     return func.HttpResponse(result,mimetype="application/json")
 
-def finding_all_product_related_details(all_details):
-    if len(all_details)>0:
-        product_json=all_details
-        spec_list=product_json["selected_spec_list"]
-        #take default spec_id
-        spec_json={}
-        if len(spec_list)>0:
-            spec_id_split=spec_list[0].get("name").split(config.pipe_delimitter)
-            spec_id=spec_id_split[0]
-            spec_json[spec_id]=[]
-            for item in spec_list:
-               if spec_id in item.get("name"):
-                   spec_id_split=item.get("name").split(config.pipe_delimitter)
-                   if len(spec_id_split)>1:
-                    namprod=spec_id_split[1]
-                    spec_json[spec_id].append(namprod)
-        return spec_json
-
-
+def rearrange_json(basic_details):
+    basic_data=basic_details.get("basic_properties")
+    spec_json=basic_details.get("selected_spec_list")
+    if len(basic_data)>0:
+        common_json={}
+        common_json["Spec_id"]=[]
+        common_json["Spec_id"].append(spec_json[0])
+        common_json["product_Level"]=basic_data[0].get("product_Level")
+        common_json["Mat_Level"]=basic_data[0].get("material_Level")
+        common_json["CAS_Level"]=basic_data[0].get("cas_Level")
+        return common_json
 
     
 def get_cas_details_on_selected_spec(product_rspec,params):
@@ -99,120 +90,117 @@ def get_material_details_on_selected_spec(product_rspec,params):
     except Exception as e:
         return [],[],[],[]
 
-def home_page_details(spec_json):
+def home_page_details(all_details_json,spec_list,arranged_level_json):
     try:
+        category=["EU_REG_STATUS","US_REG_STATUS","LATAM_REG_STATUS","US-FDA","EU-FDA","GADSL","CAL-PROP","SAP-BW","Heavy metals","Toxicology","Toxicology-summary"]
         home_page_details={}
-        material_list=[]
-        cas_list=[]
         product_attributes=[]
-        bdt_list=[]
-        material_details=[]
         product_compliance=[]
         customer_comm=[]
         toxicology=[]
         restricted_sub=[]
         sales_information=[]
         report_data=[]
-        home_spec_details=spec_json.get("name").split(" | ")
-        home_spec=home_spec_details[0]
-        home_namprod=home_spec_details[1]
-        namprod_list=[home_namprod]
-        params={"rows":2147483647,"fl":solr_product_column}
-        #collecting CAS list
-        cas_list=get_cas_details_on_selected_spec(home_spec,params)
-        #material list      
-        material_list,bdt_list,material_details,matstr=get_material_details_on_selected_spec(home_spec,params)
-        #all category with value
-        all_value_with_category={}
-        if (home_spec):
-            all_value_with_category["NAMPROD"]=[home_spec]
-        if len(bdt_list)>0:
-            all_value_with_category["BDT"]=bdt_list
-        if len(material_list)>0:
-            all_value_with_category["MATNBR"]=material_list
-        if len(cas_list)>0:
-            all_value_with_category["NUMCAS"]=cas_list            
-        # product attributes
+        #unstrucure details
+        home_page_query=helper.unstructure_template(all_details_json,category)
+        params={"fl":config.unstructure_column_str}
+        unstructure_values,unstructure_df=helper.get_data_from_core(config.solr_unstructure_data,home_page_query,params)
+        founded_category=list(unstructure_df["CATEGORY"].unique())
+        # product and material - info     
         mat_str=''
-        if len(material_details)>3:
-            mat_str=", ".join(material_details[0:2])  
+        mat_str_list=[]
+        product_list=[]
+        for item in spec_list:
+            for matid in arranged_level_json.get("Mat_Level"):
+                mat_spec_id=matid.get("real_Spec_Id")
+                if type(mat_spec_id)==str and (item in mat_spec_id):
+                    mat_str_list.append(matid.get("bdt",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("material_Number",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("description",config.hypen_delimiter))
+                elif type(mat_spec_id)==list:
+                    for inside_mat in mat_spec_id:
+                        if item in inside_mat:
+                            mat_str_list.append(matid.get("bdt",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("material_Number",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("description",config.hypen_delimiter))
+                            break
+            nam_list=all_details_json.get(item).get("namprod",[])
+            if len(nam_list)>0:
+                nam_str=(config.comma_delimiter).join(nam_list)
+                product_list.append(item+config.hypen_delimiter+nam_str)
+            else:
+                product_list.append(item)
+        if len(mat_str_list)>0 and len(mat_str_list)>3:
+            mat_str_list=mat_str_list[:3]
+            mat_str=(config.comma_delimiter).join(mat_str_list)+" and more.." 
+        elif len(mat_str_list)>0:
+            mat_str=(config.comma_delimiter).join(mat_str_list)
         else:
-            mat_str=", ".join(material_details)              
-        product_attributes.append({"image":"https://5.imimg.com/data5/CS/BR/MY-3222221/pharmaceuticals-chemicals-500x500.jpg"})
-        product_attributes.append({"Product Identification": str(home_spec)+"-"+str(home_namprod)})
-        product_attributes.append({"Material Information":str(mat_str)})
+            mat_str=(config.hypen_delimiter)    
+        if len(product_list)>3:
+            product_list=product_list[:3]
+        product_attributes.append({"image":"https://5.imimg.com/data5/CS/BR/MY-3222221/pharmaceuticals-chemicals-500x500.jpg"})   
+        product_attributes.append({"Product Identification": (config.comma_delimiter).join(product_list)})
+        product_attributes.append({"Material Information":mat_str})
         product_attributes.append({"tab_modal": "compositionModal"})
         home_page_details["Product Attributes"]=product_attributes
 
         #product compliance
-        query=f'SUBID:{home_spec}'
-        params={"rows":2147483647,"fl":"RLIST"}
-        pcomp=list(get_spec_list.solr_notification_status.search(query,**params))
-        country=[]
-        for r in pcomp:
-            place=r.get("RLIST")
-            country.append(place)
-        if len(country)>4:
-            country=country[:4]
-        rlist=", ".join(country)
+        negative_str=config.hypen_delimiter
+        positive_str=config.hypen_delimiter
+        spec_query=(config.or_delimiter).join(spec_list)
+        query=f'SUBID:({spec_query})'
+        params={"fl":config.notification_column_str}
+        pcomp,pcomp_df=helper.get_data_from_core(config.solr_notification_status,query,params)
+        if ("NOTIF" in list(pcomp_df.columns)) and len(pcomp)>0:
+            phrase_key=list(pcomp_df["NOTIF"].unique())
+            phrase_key_query=(config.or_delimiter).join(phrase_key)
+            query=f'PHRKY:({phrase_key_query})'
+            params={"fl":config.phrase_column_str}
+            key_value,key_value_df=helper.get_data_from_core(config.solr_phrase_translation,query,params)
+            key_compare=key_value_df.values.tolist()
+            negative_country=[]
+            positive_country=[]
+            for item in pcomp:
+                try:
+                    place=item.get("RLIST",config.hypen_delimiter)
+                    key = item.get("NOTIF","")
+                    for pkey,ptext in key_compare:
+                        if pkey==key and ("y" in ptext.lower() and "positive" in ptext.lower()):
+                            positive_country.append(place)
+                            break
+                        elif pkey==key and ("n" in ptext.lower() and "negative" in ptext.lower()):
+                            negative_country.append(place)
+                            break
+                except Exception as e:
+                    pass
+            if len(negative_country)>4:
+                negative_country=negative_country[:4]
+            if len(positive_country)>4:
+                positive_country=positive_country[:4]
+            negative_str=(config.comma_delimiter).join(negative_country)
+            positive_str=(config.comma_delimiter).join(positive_country)
         product_compliance.append({"image":"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS3WDKemmPJYhXsoGknA6nJwlRZTQzuYBY4xmpWAbInraPIJfAT"})
-        product_compliance.append({"Negative Regulatory Notification Lists":str(rlist)}) 
+        product_compliance.append({"Negative Regulatory Notification Lists":negative_str}) 
+        product_compliance.append({"Postive Regulatory Notification Lists":positive_str}) 
         product_compliance.append({"tab_modal": "complianceModal"})          
         
         #ag registartion
-        euflag=''
-        usflag=''
-        ltflag=''
-        ag_country_active=[]
-        ag_country_inactive=[]
-        check_list=namprod_list+bdt_list
-        check_list=list(set(check_list))
-        product_list=[data.replace(" ","\ ") for data in check_list]
-        product_query=" || ".join(product_list)
-        category_list=["EU_REG_STATUS","US_REG_STATUS","LATAM_REG_STATUS"]
-        region_list=["EU Region","US Canada","Latin America"]
-        category_query=" || ".join(category_list)
-        query=f'CATEGORY:({category_query}) && IS_RELEVANT:1 && PRODUCT:({product_query})'
-        params={"rows":2147483647,"fl":"DATA_EXTRACT,PRODUCT,CATEGORY"}
-        ag_result=list(get_spec_list.solr_unstructure_data.search(query,**params))
-        for item in ag_result:
-            region=item.get("CATEGORY","-")
-            if region=="EU_REG_STATUS" and euflag=='':
-                euflag='s'
-                ag_country_active.append("EU Region")
-            elif region=="US_REG_STATUS" and usflag=='':
-                usflag='s'
-                ag_country_active.append("US Canada")
-            elif region=="LATAM_REG_STATUS" and ltflag=='':
-                ltflag='s'
-                ag_country_active.append("Latin America")
-            if len(ag_country_active)>2:
-                break
-        if len(ag_country_active)!=3:
-            for item in region_list:
-                if item not in ag_country_active:
-                    ag_country_inactive.append(item)
-
-        product_compliance.append({"AG Registration Status - Acitve":", ".join(ag_country_active)})
-        product_compliance.append({"AG Registration Status - Not Acitve":", ".join(ag_country_inactive)})
+        active_region=[]
+        inactive_region=[]
+        for region in config.ag_registration_country:
+            if region in founded_category:
+                active_region.append(config.ag_registration_country.get(region))
+            else:
+                inactive_region.append(config.ag_registration_country.get(region))
+        product_compliance.append({"AG Registration Status acitve region":(config.comma_delimiter).join(active_region)})
+        product_compliance.append({"AG Registration Status inacitve region":(config.comma_delimiter).join(inactive_region)})
         home_page_details["Product compliance"]=product_compliance
         
         #customer communication
         usflag="No"
         euflag="No"
-        category_list=["US-FDA","EU-FDA"]
-        category_query=" || ".join(category_list)
-        params={"rows":2147483647,"fl":"DATA_EXTRACT,PRODUCT,CATEGORY"}
-        query=f'CATEGORY:({category_query}) && IS_RELEVANT:1 && PRODUCT:({product_query})'
-        communication_result=list(get_spec_list.solr_unstructure_data.search(query,**params))
-        for item in communication_result:
-            com_category=item.get("CATEGORY","-")
-            if com_category=="US-FDA":
-                usflag="Yes"
-            elif com_category=="EU-FDA":
-                euflag="Yes"
-            if usflag=="Yes" and euflag=="Yes":
-                break
+        for data in config.us_eu_category:
+            if (data in founded_category) and data=="US-FDA":
+               usflag="Yes" 
+            if (data in founded_category) and data=="EU-FDA":
+               euflag="Yes"         
         customer_comm.append({"image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzuuf2CXVDH2fVLuKJRbIqd14LsQSAGaKb7_hgs9HAOtSsQsCL"})
         customer_comm.append({"US FDA Compliance" : usflag})
         customer_comm.append({"EU Food Contact " : euflag})
@@ -220,33 +208,42 @@ def home_page_details(spec_json):
         customer_comm.append({"tab_modal": "communicationModal"})
         home_page_details["Customer Communication"]=customer_comm
 
-
         #toxicology
+        summary_flag="No"
+        study_title=[]
+        if "Toxicology-summary" in founded_category:
+            summary_flag="Yes"
+        for item in unstructure_values:
+            try:
+                if item.get("CATEGORY")=="Toxicology":
+                    toxic_data=json.loads(item.get("DATA_EXTRACT",""))
+                    study_str=toxic_data.get("Study Title","")
+                    if study_str !="":
+                        study_title.append(study_str)
+            except Exception as e:
+                pass
+        if len(study_title)>3:
+            study_title=study_title[:3]
         toxicology.append({ "image" : "https://flaptics.io/images/yu.png"})
-        toxicology.append({"Study Titles" : ""})
-        toxicology.append({"Toxicology Summary Report Available" : ""})
+        toxicology.append({"Study Titles" : (config.comma_delimiter).join(study_title)})
+        toxicology.append({"Toxicology Summary Report Available":summary_flag})
         toxicology.append({"Pending Monthly Tox Studies": ""})
         toxicology.append({ "tab_modal": "toxicologyModal"})
         home_page_details["Toxicology"]=toxicology
 
         #restricted_sub
-        cas_product_list=[data.replace(" ","\ ") for data in cas_list]
-        cas_product_query=" || ".join(cas_product_list)
-        category_list=["GADSL","CAL-PROP"]
-        category_query=" || ".join(category_list)
-        params={"rows":2147483647,"fl":"DATA_EXTRACT,PRODUCT,CATEGORY"}
-        query=f'CATEGORY:({category_query}) && IS_RELEVANT:1 && PRODUCT:({cas_product_query})'
-        res_sub_result=list(get_spec_list.solr_unstructure_data.search(query,**params))
         gadsl_fg='No'
         cal_fg="No"
-        for item in res_sub_result:
-            re_category=item.get("CATEGORY","-")
-            if re_category=="GADSL":
-                gadsl_fg="Yes"
-            elif re_category=="CAL-PROP":
-                cal_fg="Yes"
-            if gadsl_fg=="Yes" and cal_fg=="Yes":
-                break
+        for rest in config.restricted_sub_list:
+            try:
+                if (rest in founded_category) and rest=="GADSL":
+                    gadsl_fg="Yes"
+                if (rest in founded_category) and rest=="CAL-PROP":
+                    cal_fg="Yes"
+                if gadsl_fg=="Yes" and cal_fg=="Yes":
+                    break
+            except Exception as e:
+                pass
         restricted_sub.append({"image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnJXf4wky23vgRlLzdkExEFrkakubrov2OWcG9DTmDA1zA2-U-"})
         restricted_sub.append({"Components Present in GADSL": gadsl_fg})
         restricted_sub.append({"Components Present in Cal Prop 65":cal_fg})
@@ -254,27 +251,30 @@ def home_page_details(spec_json):
         home_page_details["Restricted Substance"]=restricted_sub
 
         #sales_information
-        kg=0
+        sales_kg=0
         sales_country=[]
-        sales_information.append({"image":"https://medschool.duke.edu/sites/medschool.duke.edu/files/styles/interior_image/public/field/image/reports.jpg?itok=F7UK-zyt"})
-        mat_product_list=[data.replace(" ","\ ") for data in material_list]
-        mat_product_query=" || ".join(mat_product_list)
-        params={"rows":2147483647,"fl":"DATA_EXTRACT,PRODUCT,CATEGORY"}
-        query=f'CATEGORY:SAP-BW && IS_RELEVANT:1 && PRODUCT:({mat_product_query})'
-        salesinfo=list(get_spec_list.solr_unstructure_data.search(query,**params))
-        for data in salesinfo:
-            datastr=json.loads(data.get("DATA_EXTRACT","-"))
-            sales_country.append(datastr.get('Sold-to Customer Country',"-"))
-            year_2019=str(datastr.get('Fiscal year/period',"-")).split(".")
-            if len(year_2019)>0 and year_2019[1]=="2019":
-                kg=kg+int(datastr.get("SALES KG"))
+        sold_country="-"
+        if "SAP-BW" in founded_category:
+            for item in unstructure_values:
+                try:
+                    if item.get("CATEGORY")=="SAP-BW":
+                        sap_data=json.loads(item.get("DATA_EXTRACT",""))
+                        sold_str=sap_data.get("Sold-to Customer Country","")
+                        if sold_str !="":
+                            sales_country.append(sold_str)
+                        year_2019=str(sap_data.get('Fiscal year/period',"-")).split(".")
+                        if len(year_2019)>0 and year_2019[1]=="2019":
+                            sales_kg=sales_kg+int(sap_data.get("SALES KG"))   
+                except Exception as e:
+                    pass            
         sales_country=list(set(sales_country))
-        if len(sales_country)<5:
+        if len(sales_country)<5 and len(sales_country)>0:
             sold_country=", ".join(sales_country)
         else:
             sold_country=", ".join(sales_country[0:5])
             sold_country=sold_country+" and more.."
-        sales_kg=str(kg)+" Kg"
+        sales_kg=str(sales_kg)+" Kg"
+        sales_information.append({"image":"https://medschool.duke.edu/sites/medschool.duke.edu/files/styles/interior_image/public/field/image/reports.jpg?itok=F7UK-zyt"})       
         sales_information.append({"Total sales in 2019" :sales_kg})
         sales_information.append({"Regions where sold" :sold_country})
         sales_information.append({"tab_modal": "salesModal"})

@@ -6,7 +6,7 @@ import os
 import pysolr
 import datetime
 
-solr_url_config="https://172.23.2.4:8983/solr"
+solr_url_config="https://172.23.2.8:8983/solr"
 solr_product= pysolr.Solr(solr_url_config+"/product_information/", timeout=10,verify=False)
 solr_notification_status=pysolr.Solr(solr_url_config+'/sap_notification_status/', timeout=10,verify=False)
 solr_unstructure_data=pysolr.Solr(solr_url_config+'/unstructure_processed_data/', timeout=10,verify=False)

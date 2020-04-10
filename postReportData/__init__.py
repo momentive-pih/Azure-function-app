@@ -24,7 +24,7 @@ def get_report_data_details(req_body):
     try:
         all_details_json,spec_list,material_list=construct_common_level_json(req_body) 
         report_list=[]
-        spec_list_query=(config.or_demiliter).join(spec_list)
+        spec_list_query=(config.or_delimiter).join(spec_list)
         params={"fl":config.report_column_str}
         core=config.solr_document_variant
         query=f'SUBID:({spec_list_query})'
@@ -35,7 +35,7 @@ def get_report_data_details(req_body):
                     date_parse=data.get("RELON")
                     date_parse=date_parse.strip()
                     if len(date_parse)==8:
-                        date_format=date_parse[6:8]+"-"+date_parse[4:6]+"-"+date_parse[0:4]
+                        date_format=date_parse[0:4]+"-"+date_parse[4:6]+"-"+date_parse[6:8]
                     else:
                         date_format=date_parse
                     specid=data.get("SUBID")

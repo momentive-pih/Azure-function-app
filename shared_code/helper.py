@@ -141,58 +141,7 @@ def spec_constructor(req_body):
     except Exception as e:
         return speclist_data,speclist_json,list(set(total_spec)),list(set(total_namprod))
 
-def construct_common_level_json(common_json):
-    MaterialLevel = [{
-    "material_Number": "000000000000017718",
-    "description": "^LSR 2650 A",
-    "bdt": "LSR 2650 A",
-    "real_Spec_Id":[ "000000018924 | LSR 2650 A","000000018905 | LSR 2640 B","000000018905 | LSR 2640 A"]
-    },
-    { 
-    "material_Number": "000000000000017719",
-    "description": "^LSR 2650 A-200K",
-    "bdt": "LSR 2650 A",
-    "real_Spec_Id": ["000000018924 | LSR 2650 A","000000018905 | LSR 2640 B","000000018905 | LSR 2640 A"]
-    },{ 
-    "material_Number": "000000000000017720",
-    "description": "^LSR 2650 A-200K",
-    "bdt": "LSR 3650 A",
-    "real_Spec_Id": ["000000018924 | LSR 2650 A"]
-    }
-    ]
-
-    productLevel = [
-    {"real_Spec_Id": "000000018924", "namprod": "LSR 2650 A", "synonyms": "-"},
-    {"real_Spec_Id": "000000018905", "namprod": "LSR 2640 B", "synonyms": "-"}
-    ]
-
-    CasLevel = [ 
-    {
-    "pure_Spec_Id": "000000002910",
-    "cas_Number": "7732-18-5",
-    "chemical_Name": "Water",
-    "real_Spec_Id":["000000018905 | LSR 2640 A","000000018905 | LSR 2640 B", "000000018924 | LSR 2650 A", "000000018925 | LSR 2650 B", "000000019160 | EMU101", "000000019451 | EMU120"]
-    },{
-    "pure_Spec_Id": "000000002910",
-    "cas_Number": "7732-18-6",
-    "chemical_Name": "Hydrochloric",
-    "real_Spec_Id":["000000018905 | LSR 2640 A","000000018905 | LSR 2640 B", "000000018924 | LSR 2650 A", "000000018925 | LSR 2650 B", "000000019160 | EMU101", "000000019451 | EMU120"]
-    }
-    ]
-
-    selectedSpecList =[ 
-    {"id": 1, "name": "000000018905 | LSR 2640 A"},
-    {"id": 2, "name": "000000018905 | LSR 2640 B"},
-    {"id": 3, "name": "000000018924 | LSR 2650 A"}
-    ]
-
-    # json_array={
-    #     'Spec_id': selectedSpecList,
-    #     'Category_details': '',
-    #     'product_Level':productLevel,
-    #     'Mat_Level':MaterialLevel
-    #     }
-    json_array=common_json
+def construct_common_level_json(json_array,home_flag=""):
     all_details={}
     spec_list=[]
     material_list=[]
@@ -219,25 +168,46 @@ def construct_common_level_json(common_json):
                     print(all_details)
         #material level classify
         if(json_array.get("Mat_Level")): 
-            for matid in json_array.get("Mat_Level"):
-                mat_spec_list=matid.get("real_Spec_Id")
+            for matid in json_array.get("Mat_Level"):         
                 bdt=matid.get("bdt")
                 material_number=matid.get("material_Number")
                 material_list.append(material_number)
-                if spec_nam_id in mat_spec_list:
-                    all_details=item_arrange(all_details,spec_id,"material_number",material_number)
-                    all_details=item_arrange(all_details,spec_id,"bdt",bdt)
+                if home_flag=="":
+                    mat_spec_list=matid.get("real_Spec_Id")
+                    if spec_nam_id in mat_spec_list:
+                        all_details=item_arrange(all_details,spec_id,"material_number",material_number)
+                        all_details=item_arrange(all_details,spec_id,"bdt",bdt)
+                elif home_flag=="home_page":
+                    home_mat_spec_list=matid.get("spec_Nam_List")
+                    for data in home_mat_spec_list:
+                        mat_spec_nam=data.get("real_Spec_Id")
+                        if mat_spec_nam==spec_nam_id:
+                            all_details=item_arrange(all_details,spec_id,"material_number",material_number)
+                            all_details=item_arrange(all_details,spec_id,"bdt",bdt)
+                            break
+
         #cas level classify
         if(json_array.get("CAS_Level")): 
             for casid in json_array.get("CAS_Level"):
-                cas_spec_list=casid.get("real_Spec_Id")
                 pure_spec=casid.get("pure_Spec_Id")
                 cas_number=casid.get("cas_Number")
                 chemical_name=casid.get("chemical_Name")
-                if spec_nam_id in cas_spec_list:
-                    all_details=item_arrange(all_details,spec_id,"pure_spec_id",pure_spec)
-                    all_details=item_arrange(all_details,spec_id,"cas_number",cas_number)
-                    all_details=item_arrange(all_details,spec_id,"chemical_name",chemical_name)
+                if home_flag=="":
+                    cas_spec_list=casid.get("real_Spec_Id")
+                    if spec_nam_id in cas_spec_list:
+                        all_details=item_arrange(all_details,spec_id,"pure_spec_id",pure_spec)
+                        all_details=item_arrange(all_details,spec_id,"cas_number",cas_number)
+                        all_details=item_arrange(all_details,spec_id,"chemical_name",chemical_name)
+                elif home_flag=="home_page":
+                    home_cas_spec=casid.get("spec_Nam_List")
+                    for data in home_cas_spec:
+                        cas_spec_nam=data.get("real_Spec_Id")
+                        if cas_spec_nam==spec_nam_id:
+                            all_details=item_arrange(all_details,spec_id,"pure_spec_id",pure_spec)
+                            all_details=item_arrange(all_details,spec_id,"cas_number",cas_number)
+                            all_details=item_arrange(all_details,spec_id,"chemical_name",chemical_name)
+                            break
+
         last_specid=spec_id
     print(all_details)
     return all_details,spec_list,list(set(material_list))
@@ -262,11 +232,11 @@ def unstructure_template(all_details,category):
         # category=["US-FDA","EU-FDA"]
         product_map={"namprod":"NAMPROD","bdt":"BDT","material_number":"MATNBR","cas_number":"NUMCAS"}
         product_section_list=[]
-        or_demiliter=config.or_demiliter
+        or_delimiter=config.or_delimiter
         spec_id_section=''
         spec_id_section_list=[]
         product_query=''
-        category_query=or_demiliter.join(category)
+        category_query=or_delimiter.join(category)
         for specid in all_details:
             spec_query=f'SPEC_ID:*{specid}*'
             for prod_type in all_details.get(specid):
@@ -278,11 +248,11 @@ def unstructure_template(all_details,category):
                     product_query=f'({product_type_query} && {product_value_query})'
                     product_section_list.append(product_query)
             if len(product_section_list)!=0:
-                product_section_template=or_demiliter.join(product_section_list)
+                product_section_template=or_delimiter.join(product_section_list)
                 spec_id_section=f'({spec_query} && ({product_section_template}))'
                 spec_id_section_list.append(spec_id_section)
         if len(spec_id_section_list)>0:
-            spec_id_section_query=or_demiliter.join(spec_id_section_list)
+            spec_id_section_query=or_delimiter.join(spec_id_section_list)
             unstructure_query=f'IS_RELEVANT:1 && CATEGORY:({category_query}) && ({spec_id_section_query})'
     except Exception as e:
         print(e)

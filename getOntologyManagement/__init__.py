@@ -5,7 +5,7 @@ import pandas as pd
 import os 
 import pysolr
 
-solr_url_config="https://172.23.2.4:8983/solr"
+solr_url_config="https://172.23.2.8:8983/solr"
 solr_ontology=pysolr.Solr(solr_url_config+'/ontology/', timeout=10,verify=False)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
