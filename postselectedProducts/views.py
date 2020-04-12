@@ -49,40 +49,39 @@ def selected_products(data_json,searched_product_flag="yes"):
         material_df=pd.DataFrame()
         cas_df=pd.DataFrame()
         prod_df=pd.DataFrame()
-        return_data={}
-        if len(data_json)<=2:
-            for item in data_json:
-                search_value = item.get("name")
-                search_value_split = search_value.split(" | ")
-                search_column = item.get("type")
-                search_key = item.get("key")
-                search_column_split = search_column.split(" | ")
-                search_group = item.get("group").split("(")
-                search_group = search_group[0].strip()
-                column_add.append(search_column)
-                count+=1
-                if search_group == "PRODUCT-LEVEL":
-                    product_level_flag = 's'
-                    product_count = count
-                    product_rspec = search_value_split[search_column_split.index("REAL-SPECID")]
-                    product_name = search_value_split[search_column_split.index("NAM PROD")]
-                    product_synonyms = search_value_split[search_column_split.index("SYNONYMS")]
-                    product_level_json={"real_Spec_Id":product_rspec,"namprod":product_name,"synonyms":product_synonyms}                     
-                if search_group == "MATERIAL-LEVEL":
-                    material_level_flag = 's'
-                    material_count = count
-                    material_number = search_value_split[search_column_split.index("MATERIAL NUMBER")]
-                    material_bdt = search_value_split[search_column_split.index("BDT")]
-                    material_description = search_value_split[search_column_split.index("DESCRIPTION")]
-                    material_level_json = {"material_Number":material_number,"bdt":material_bdt,"description":material_description}
-                if search_group == "CAS-LEVEL":
-                    cas_level_flag = 's'
-                    cas_count = count
-                    cas_pspec = search_value_split[search_column_split.index("PURE-SPECID")]  
-                    cas_number = search_value_split[search_column_split.index("CAS NUMBER")]
-                    cas_chemical = search_value_split[search_column_split.index("CHEMICAL-NAME")]  
-                    cas_level_json = {"pure_Spec_Id":cas_pspec,"cas_Number":cas_number,"chemical_Name":cas_chemical}
-                                           
+        return_data={}    
+        for item in data_json:
+            search_value = item.get("name")
+            search_value_split = search_value.split(" | ")
+            search_column = item.get("type")
+            search_key = item.get("key")
+            search_column_split = search_column.split(" | ")
+            search_group = item.get("group").split("(")
+            search_group = search_group[0].strip()
+            column_add.append(search_column)
+            count+=1
+            if search_group == "PRODUCT-LEVEL":
+                product_level_flag = 's'
+                product_count = count
+                product_rspec = search_value_split[search_column_split.index("REAL-SPECID")]
+                product_name = search_value_split[search_column_split.index("NAM PROD")]
+                product_synonyms = search_value_split[search_column_split.index("SYNONYMS")]
+                product_level_json={"real_Spec_Id":product_rspec,"namprod":product_name,"synonyms":product_synonyms}                     
+            if search_group == "MATERIAL-LEVEL":
+                material_level_flag = 's'
+                material_count = count
+                material_number = search_value_split[search_column_split.index("MATERIAL NUMBER")]
+                material_bdt = search_value_split[search_column_split.index("BDT")]
+                material_description = search_value_split[search_column_split.index("DESCRIPTION")]
+                material_level_json = {"material_Number":material_number,"bdt":material_bdt,"description":material_description}
+            if search_group == "CAS-LEVEL":
+                cas_level_flag = 's'
+                cas_count = count
+                cas_pspec = search_value_split[search_column_split.index("PURE-SPECID")]  
+                cas_number = search_value_split[search_column_split.index("CAS NUMBER")]
+                cas_chemical = search_value_split[search_column_split.index("CHEMICAL-NAME")]  
+                cas_level_json = {"pure_Spec_Id":cas_pspec,"cas_Number":cas_number,"chemical_Name":cas_chemical}
+        if len(data_json)<=2:                              
             if product_level_flag=='s' and product_count==1:
                 real_spec_list=[product_rspec]
                 if material_level_flag=='' and cas_level_flag=='':                     
@@ -158,9 +157,9 @@ def selected_products(data_json,searched_product_flag="yes"):
                     #find product details
                     prod_df=finding_product_details_using_real_specid(real_spec_list,params)           
                     #same pure-spec will be act as real-spec
-                    query=f'TYPE:NAMPROD && TEXT2:{cas_pspec} && SUBCT:PURE_SUB'
-                    pure_real_df=querying_solr_data(query,params)
-                    prod_df=pd.concat([prod_df,pure_real_df])
+                    # query=f'TYPE:NAMPROD && TEXT2:{cas_pspec} && SUBCT:PURE_SUB'
+                    # pure_real_df=querying_solr_data(query,params)
+                    # prod_df=pd.concat([prod_df,pure_real_df])
                     prod_df=prod_df.sort_values(by=['TEXT2'])  
                     if searched_product_flag=="yes":
                         searched_product_list=searched_product_list+product_level_creation(prod_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")
@@ -187,40 +186,16 @@ def selected_products(data_json,searched_product_flag="yes"):
                     if searched_product_flag=="yes":
                         searched_product_list=searched_product_list+product_level_creation(prod_df,product_rspec_category,"","","RSPEC*","PRODUCT-LEVEL","yes")                                     
                     properties,selected_spec_list=basic_properties("","material_level","cas_level",prod_df,material_level_json,cas_level_json,spec_rel_list,real_spec_list)
-       
+        else:
+            searched_product_list=[]
+            properties,selected_spec_list=basic_properties("product_level","material_level","cas_level",product_level_json,material_level_json,cas_level_json,[],[product_rspec])
+
         return_data["search_List"]=searched_product_list
         return_data["basic_properties"]=[properties]
         return_data["selected_spec_list"]=selected_spec_list
         return return_data
     except Exception as e:
         return return_data
-
-# def finding_cas_details_using_real_specid(product_rspec,params):
-#     product_rspec=" || ".join(product_rspec)
-#     query=f'TYPE:SUBIDREL && TEXT2:({product_rspec}) && SUBCT:REAL_SUB'
-#     spec_rel_df=querying_solr_data(query,params) 
-#     spec_rel_list=spec_rel_df[["TEXT1","TEXT2"]].values.tolist()
-#     column_value = list(spec_rel_df["TEXT1"].unique())
-#     spec_query=" || ".join(column_value)
-#     query=f'TYPE:NUMCAS && SUBCT:PURE_SUB && TEXT2:({spec_query})'
-#     cas_df=querying_solr_data(query,params)                 
-#     #real spec will act as pure spec componant
-#     query=f'TYPE:NUMCAS && TEXT2:({product_rspec})'
-#     real_pure_spec_df=querying_solr_data(query,params)
-#     cas_df=pd.concat([cas_df,real_pure_spec_df])
-#     return cas_df,spec_rel_list
-
-# def finding_product_details_using_real_specid(product_rspec,params):
-#     product_rspec=" || ".join(product_rspec)
-#     query=f'TYPE:NAMPROD && SUBCT:REAL_SUB && TEXT2:({product_rspec})'
-#     prod_df=querying_solr_data(query,params)
-#     return prod_df
-
-# def finding_material_details_using_real_specid(product_rspec,params):
-#     product_rspec=" || ".join(product_rspec)
-#     query=f'TYPE:MATNBR && TEXT2:({product_rspec})'
-#     material_df=querying_solr_data(query,params)
-#     return material_df
 
 def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,spec_rel_list=[],real_spec_list=[]):
     try:
@@ -232,7 +207,6 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
         selected_spec_list=[]
         # spec_active_mat_json={}
         if p_flag=="product_level":
-            # product_info["no_Active_Material"]=active_material
             specid=product_info.get("real_Spec_Id")
             namprod=product_info.get("namprod")
             spec_nam_json[specid]=[]
@@ -249,7 +223,6 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
                     json_make["real_Spec_Id"]=spec
                     json_make["namprod"]=namprod
                     json_make["synonyms"]=syn
-                    # json_make["no_Active_Material"]=active_material
                     json_list.append(json_make)
                     if spec_nam_json.get(spec) == None:
                         spec_nam_json[spec]=[]
@@ -389,12 +362,6 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
             result["cas_Level"]=json_list
             json_list=[] 
      
-        # #setting active material in product level
-        # product_list=result["product_Level"]
-        # for item in range(len(product_list)):
-        #     specid=product_list[item].get('real_Spec_Id')
-        #     result["product_Level"][item]["no_Active_Material"]=spec_active_mat_json.get(specid)
-        
         #setting spec list
         count=0
         for item in spec_nam_json:

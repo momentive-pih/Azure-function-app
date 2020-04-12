@@ -25,7 +25,7 @@ def querying_solr_data(query,params):
     except Exception as e:
         return df_product_combine
 
-def get_data_from_core(core,query,params):
+def get_data_from_core(core,query,params={}):
     params["rows"]=config.max_rows
     core_df=pd.DataFrame()  
     response = core.search(query,**params)
@@ -109,37 +109,6 @@ def finding_material_details_using_real_specid(product_rspec,params):
     query=f'TYPE:MATNBR && TEXT2:({product_rspec})'
     material_df=querying_solr_data(query,params)
     return material_df
-
-def spec_constructor(req_body):
-    try:
-        last_specid=''
-        namlist=[]
-        speclist_data=[]
-        speclist_json={}
-        total_namprod=[]
-        total_spec=[]
-        spec_body=req_body.get("Spec_id")
-        for item in spec_body:           
-            spec_details=item.get("name").split(" | ")
-            spec_id=spec_details[0]
-            namprod=spec_details[1]
-            if spec_id!='':
-                total_spec.append(spec_id)
-            if (last_specid!=spec_id) and last_specid!='':
-                namstr=", ".join(namlist)
-                speclist_json[last_specid]=namstr
-                namlist=[]
-                namlist.append(namprod)
-                total_namprod.append(namprod)            
-            else:
-                namlist.append(namprod)  
-                total_namprod.append(namprod)           
-            last_specid=spec_id
-        namstr=", ".join(namlist)
-        speclist_json[last_specid]=namstr
-        return speclist_data,speclist_json,list(set(total_spec)),list(set(total_namprod))
-    except Exception as e:
-        return speclist_data,speclist_json,list(set(total_spec)),list(set(total_namprod))
 
 def construct_common_level_json(json_array,home_flag=""):
     all_details={}
@@ -229,43 +198,57 @@ def item_arrange(all_details,spec_id,prod_type,prod_value):
 def unstructure_template(all_details,category):
     try:
         unstructure_query=''
-        # category=["US-FDA","EU-FDA"]
         product_map={"namprod":"NAMPROD","bdt":"BDT","material_number":"MATNBR","cas_number":"NUMCAS"}
         product_section_list=[]
         or_delimiter=config.or_delimiter
         spec_id_section=''
         spec_id_section_list=[]
-        product_query=''
-        category_query=or_delimiter.join(category)
+        category_query=replace_character_for_querying(category)
         for specid in all_details:
-            spec_query=f'SPEC_ID:*{specid}*'
-            for prod_type in all_details.get(specid):
-                if prod_type in product_map:
-                    product_type_query=f'PRODUCT_TYPE:{product_map.get(prod_type)}'
-                    product_list=all_details.get(specid).get(prod_type)
-                    replaced_query=replace_character_for_querying(product_list)
-                    product_value_query=f'PRODUCT:({replaced_query})'
-                    product_query=f'({product_type_query} && {product_value_query})'
-                    product_section_list.append(product_query)
-            if len(product_section_list)!=0:
-                product_section_template=or_delimiter.join(product_section_list)
-                spec_id_section=f'({spec_query} && ({product_section_template}))'
-                spec_id_section_list.append(spec_id_section)
+            try:
+                product_type_query=''
+                product_list=[]
+                product_value_query=''
+                product_query=''
+                product_section_list=[]
+                product_section_template=''
+                spec_query=f'SPEC_ID:*{specid}*'
+                for prod_type in all_details.get(specid):
+                    try:
+                        if prod_type in product_map and len(all_details.get(specid).get(prod_type))>0:
+                            product_type_query=f'PRODUCT_TYPE:{product_map.get(prod_type)}'
+                            product_list=all_details.get(specid).get(prod_type)
+                            replaced_query=replace_character_for_querying(product_list)
+                            product_value_query=f'PRODUCT:({replaced_query})'
+                            product_query=f'({product_type_query} && {product_value_query})'
+                            product_section_list.append(product_query)
+                    except Exception as e:
+                        pass
+                if len(product_section_list)!=0:
+                    product_section_template=or_delimiter.join(product_section_list)
+                    spec_id_section=f'({spec_query} && ({product_section_template}))'
+                    spec_id_section_list.append(spec_id_section)
+            except Exception as e:
+                pass
         if len(spec_id_section_list)>0:
             spec_id_section_query=or_delimiter.join(spec_id_section_list)
             unstructure_query=f'IS_RELEVANT:1 && CATEGORY:({category_query}) && ({spec_id_section_query})'
     except Exception as e:
         print(e)
+    logging.info("unstrucure_query"+str(unstructure_query))
     return unstructure_query
 
 def finding_spec_details(spec_list,unstructure_spec):
-    result_spec=[]
-    if ";" in unstructure_spec:
-        for id in spec_list:
-            if id in unstructure_spec:
-                result_spec.append(id)
-    else:
-        result_spec.append(unstructure_spec) 
+    try:
+        result_spec=[]
+        if ";" in unstructure_spec:
+            for id in spec_list:
+                if id in unstructure_spec:
+                    result_spec.append(id)
+        else:
+            result_spec.append(unstructure_spec) 
+    except Exception as e:
+        pass
     return (config.pipe_delimitter).join(result_spec)
 
 

@@ -53,14 +53,21 @@ or_delimiter=" || "
 hypen_delimiter=" - "
 comma_delimiter=", "
 ag_registration_country={"EU_REG_STATUS":"EU Region","US_REG_STATUS":"US Canada","LATAM_REG_STATUS":"Latin America"}
-us_eu_category={
-            "US-FDA":"US FDA Letter",
-            "EU-FDA":"EU Food Contact"
-        }
+ag_registration_list=["EU_REG_STATUS","US_REG_STATUS","LATAM_REG_STATUS"]
+us_eu_category={"US-FDA":"US FDA Letter","EU-FDA":"EU Food Contact"}       
+restricted_dict={"GADSL":"GADSL","CALPROP":"CAL-PROP"}
 restricted_sub_list=["GADSL","CAL-PROP"]
 report_column_str="SUBID,REPTY,RGVID,LANGU,VERSN,STATS,RELON"
 unstructure_column_str="PRODUCT_TYPE,SPEC_ID,CREATED,DATA_EXTRACT,CATEGORY,PRODUCT,UPDATED"
-notification_column_str="NOTIF,ZUSAGE,ADDIN,RLIST"
+notification_column_str="NOTIF,ZUSAGE,ADDIN,RLIST,SUBID"
 phrase_column_str="PHRKY,PTEXT"
-ghs_image_path=r"https://devstorpih001.blob.core.windows.net/momentive-sources-pih/ghs-images-pih/"
-    
+BlobPath=f"https://devstorpih001.blob.core.windows.net/"
+ghs_image_path=BlobPath+f"momentive-sources-pih/ghs-images-pih/"
+sas_token=f"?sv=2019-02-02&ss=b&srt=sco&sp=rl&se=2020-05-29T20:19:29Z&st=2020-04-02T12:19:29Z&spr=https&sig=aodIg0rDPVsNEJY7d8AerhD79%2FfBO9LZGJdx2j9tsCM%3D"
+home_icon_product_attributes=BlobPath+f"momentive-sources-pih/home-page-icon-images-pih/productAttributes.jpg"+sas_token
+home_icon_customer_communication=BlobPath+f"momentive-sources-pih/home-page-icon-images-pih/customerCommunication.png"+sas_token
+home_icon_product_compliance=BlobPath+f"momentive-sources-pih/home-page-icon-images-pih/ProductCompliance.jpg"+sas_token
+home_icon_report_data=BlobPath+f"momentive-sources-pih/home-page-icon-images-pih/report.png"+sas_token
+home_icon_restricted_substance=BlobPath+f"momentive-sources-pih/home-page-icon-images-pih/restrictedsubstance.png"+sas_token
+home_icon_sales_info=BlobPath+f"momentive-sources-pih/home-page-icon-images-pih/salesInformation.jpg"+sas_token
+home_icon_toxicology=BlobPath+f"momentive-sources-pih/home-page-icon-images-pih/toxicology.jpg"+sas_token

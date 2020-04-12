@@ -20,6 +20,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
 def get_sales_data_details(req_body):
     try:
+        logging.info("sales info request"+f'{req_body}')
         category=["SAP-BW"]
         material_level_data=req_body.get("Mat_Level")
         all_details_json,spec_list,material_list=helper.construct_common_level_json(req_body)
@@ -32,39 +33,48 @@ def get_sales_data_details(req_body):
         region=[]
         material_flag=''
         for mat_id in material_list:
-            for data in result: 
-                material_number=data.get("PRODUCT")
-                if material_number==mat_id:
-                    material_flag='s'
-                    result_spec=data.get("SPEC_ID")  
-                    spec_id=helper.finding_spec_details(spec_list,result_spec)
-                    data_extract=json.loads(data.get("DATA_EXTRACT"))
-                    sales_org.append(data_extract.get("Sales Organization"))
-                    sales_kg=sales_kg+int(data_extract.get("SALES KG"))
-                    region.append(data_extract.get("Sold-to Customer Country"))
-                    material_number=data.get("PRODUCT")
-            if material_flag=='s':
-                desc=[]
-                bdt=[]       
-                for item in material_level_data:
-                    if item.get("material_Number")==mat_id:
-                        desc.append(item.get("description"))
-                        bdt.append(item.get("bdt"))
-                sales_json={
-                    "material_number":mat_id,
-                    "material_description":(config.comma_delimiter).join(list(set(desc))),
-                    "basic_data":(config.comma_delimiter).join(list(set(bdt))),
-                    "sales_Org":(config.comma_delimiter).join(list(set(sales_org))),
-                    "past_Sales":str(sales_kg)+" Kg",
-                    "spec_id":spec_id,
-                    "region_sold":(config.comma_delimiter).join(list(set(region)))
-                    }
-                sales_list.append(sales_json) 
-                sales_json={}
-                material_flag=''
-                sales_kg=0
-                sales_org=[]
-                region=[]
+            try:
+                for data in result: 
+                    try:
+                        material_number=data.get("PRODUCT","")
+                        if material_number==mat_id:
+                            material_flag='s'
+                            result_spec=data.get("SPEC_ID","")  
+                            spec_id=helper.finding_spec_details(spec_list,result_spec)
+                            data_extract=json.loads(data.get("DATA_EXTRACT",{}))
+                            sales_org.append(data_extract.get("Sales Organization",""))
+                            sales_kg=sales_kg+int(data_extract.get("SALES KG",0))
+                            region.append(data_extract.get("Sold-to Customer Country",""))
+                    except Exception as e:
+                        pass
+                        # material_number=data.get("PRODUCT","")
+                if material_flag=='s':
+                    desc=[]
+                    bdt=[]       
+                    for item in material_level_data:
+                        try:
+                            if item.get("material_Number")==mat_id:
+                                desc.append(item.get("description",""))
+                                bdt.append(item.get("bdt",""))
+                        except Exception as e:
+                            pass
+                    sales_json={
+                        "material_number":mat_id,
+                        "material_description":(config.comma_delimiter).join(list(set(desc))),
+                        "basic_data":(config.comma_delimiter).join(list(set(bdt))),
+                        "sales_Org":(config.comma_delimiter).join(list(set(sales_org))),
+                        "past_Sales":str(sales_kg)+" Kg",
+                        "spec_id":spec_id,
+                        "region_sold":(config.comma_delimiter).join(list(set(region)))
+                        }
+                    sales_list.append(sales_json) 
+                    sales_json={}
+                    material_flag=''
+                    sales_kg=0
+                    sales_org=[]
+                    region=[]
+            except Exception as e:
+                pass
         result_data={"saleDataProducts":sales_list}
         return [result_data]
     except Exception as e:
