@@ -233,7 +233,7 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
                         spec_nam_json[spec]=list(set(nam_list))              
                     json_make={}
                 except Exception as e:
-                    print(e)
+                    pass
             result["product_Level"]=json_list
 
             #sorting specid on ascending
@@ -311,7 +311,7 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
                     #         spec_active_mat_json[specid]=spec_active_mat_json.get(specid)+1
                     json_make={}
                 except Exception as e:
-                    print(e)
+                    pass
             result["material_Level"]=json_list
             json_list=[]
         
@@ -328,7 +328,7 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
                     else:
                         continue
                 except Exception as e:
-                    print(e)
+                    pass
             cas_info["spec_Nam_List"]=spec_nam_list
             result["cas_Level"]=[cas_info]
         else:
@@ -358,7 +358,7 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
                     json_list.append(json_make)
                     json_make={}
                 except Exception as e:
-                    print(e)
+                    pass
             result["cas_Level"]=json_list
             json_list=[] 
      

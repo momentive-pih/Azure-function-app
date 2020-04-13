@@ -42,19 +42,19 @@ def get_report_data_details(req_body):
                     namprod=all_details_json.get(specid).get("namprod")
                     material=all_details_json.get(specid).get("material_number")
                     report_json={
-                        "category":str(data.get("REPTY")).strip(),
-                        "generation_Variant":str(data.get("RGVID")).strip(),
-                        "language":str(data.get("LANGU")).strip(),
-                        "version":str(data.get("VERSN")).strip(),
+                        "category":str(data.get("REPTY",config.hypen_delimiter)).strip(),
+                        "generation_Variant":str(data.get("RGVID",config.hypen_delimiter)).strip(),
+                        "language":str(data.get("LANGU",config.hypen_delimiter)).strip(),
+                        "version":str(data.get("VERSN",config.hypen_delimiter)).strip(),
                         "released_on":date_format,             
                         "spec_id":specid+(config.hypen_delimiter)+(config.comma_delimiter).join(namprod),
                         "material_details":(config.comma_delimiter).join(material),
-                        "status":str(data.get("STATS")).strip(),
+                        "status":str(data.get("STATS",config.hypen_delimiter)).strip(),
                     }
                     report_list.append(report_json)
             except Exception as e:
-                print(e)
+                pass
         return report_list
     except Exception as e:
-        print(e)
+        pass
         return []

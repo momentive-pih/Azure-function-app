@@ -42,9 +42,15 @@ def get_sales_data_details(req_body):
                             result_spec=data.get("SPEC_ID","")  
                             spec_id=helper.finding_spec_details(spec_list,result_spec)
                             data_extract=json.loads(data.get("DATA_EXTRACT",{}))
-                            sales_org.append(data_extract.get("Sales Organization",""))
-                            sales_kg=sales_kg+int(data_extract.get("SALES KG",0))
-                            region.append(data_extract.get("Sold-to Customer Country",""))
+                            sales_org_str=data_extract.get("Sales Organization","")
+                            if sales_org != None:
+                                sales_org.append(sales_org_str)
+                            sales_kg_str=data_extract.get("SALES KG",0)
+                            if sales_kg_str!= None:
+                                sales_kg=sales_kg+int(sales_kg_str)
+                            sold_str=data_extract.get("Sold-to Customer Country","")
+                            if sold_str!=None:
+                                region.append(sold_str)
                     except Exception as e:
                         pass
                         # material_number=data.get("PRODUCT","")
@@ -78,5 +84,5 @@ def get_sales_data_details(req_body):
         result_data={"saleDataProducts":sales_list}
         return [result_data]
     except Exception as e:
-        print(e)
+        pass
         return []

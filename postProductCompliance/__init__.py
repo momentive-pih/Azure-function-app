@@ -21,7 +21,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 def get_product_compliance_details(req_body):
     try:
         logging.info("product compliance request"+f'{req_body}')
-        compliance_details=[]
+        # compliance_details=[]
         result=[]
         notification_details=[]
         all_details_json,spec_list,material_list = helper.construct_common_level_json(req_body)
@@ -33,7 +33,9 @@ def get_product_compliance_details(req_body):
             params={"fl":config.notification_column_str}
             pcomp,pcomp_df=helper.get_data_from_core(config.solr_notification_status,query,params)
             if ("NOTIF" in list(pcomp_df.columns)) and len(pcomp)>0:
-                phrase_key=(list(pcomp_df["NOTIF"].unique()))+(list(pcomp_df["ADDIN"].unique()))
+                phrase_key=(list(pcomp_df["NOTIF"].unique()))
+                if("ADDIN" in list(pcomp_df.columns)):
+                    phrase_key=phrase_key+(list(pcomp_df["ADDIN"].unique()))
                 phrase_split=";".join(phrase_key)
                 phrase_key=phrase_split.split(";")
                 phrase_key_query=(config.or_delimiter).join(phrase_key)
@@ -44,20 +46,20 @@ def get_product_compliance_details(req_body):
                 try:
                     notify={}
                     notify["regulatory_List"]=str(item.get("RLIST",config.hypen_delimiter)).strip()
-                    ntfy_rg_value=item.get("NOTIF",config.hypen_delimiter).strip()
+                    ntfy_rg_value=str(item.get("NOTIF","")).strip()
                     ntfy_rg=ntfy_rg_value.split(";")
-                    ptext_df=key_value_df[key_value_df["PHRKY"].isin(ntfy_rg)]
                     notify_value=[(config.hypen_delimiter)]
-                    if "PTEXT" in list(ptext_df.columns):
+                    if ("PTEXT" in list(key_value_df.columns)) and ("PHRKY" in list(key_value_df.columns)):
+                        ptext_df=key_value_df[key_value_df["PHRKY"].isin(ntfy_rg)]
                         notify_value=list(ptext_df["PTEXT"])
                     notify["regulatory_Basis"]="-"
                     notify["notification"]=(config.comma_delimiter).join(notify_value)
                     #add phrse text
-                    add_value=item.get("ADDIN",config.hypen_delimiter).strip()
+                    add_value=str(item.get("ADDIN","")).strip()
                     add_rg=add_value.split(";")
                     add_list=[(config.hypen_delimiter)]
-                    add_df=key_value_df[key_value_df["PHRKY"].isin(add_rg)]
-                    if "PTEXT" in list(add_df.columns):
+                    if ("PTEXT" in list(key_value_df.columns)) and ("PHRKY" in list(key_value_df.columns)):
+                        add_df=key_value_df[key_value_df["PHRKY"].isin(add_rg)]
                         add_list=list(add_df["PTEXT"])
                     notify["additional_Info"]=(config.comma_delimiter).join(add_list)
                     notify["usage"]=str(item.get("ZUSAGE","-")).strip()
@@ -68,7 +70,7 @@ def get_product_compliance_details(req_body):
                         nam_str=(config.comma_delimiter).join(nam_list)
                     else:
                         nam_str=config.hypen_delimiter
-                    notify["spec_id"]=subid+config.hypen_delimiter+nam_str
+                    notify["spec_id"]=subid+(config.hypen_delimiter)+nam_str
                     notification_details.append(notify)               
                 except Exception as e:
                     pass     
@@ -129,28 +131,6 @@ def get_product_compliance_details(req_body):
             ag_make["complianceRegistrationLatin_Data"]=latin_list
             result.append(ag_make)
 
-
-
-
-
-
-            params={"rows":2147483647}
-            material_list,bdt_list,matstr,material_details=get_material_details_on_selected_spec(spec,params)
-            namlist=namprod.split(", ")
-            check_list=namlist+bdt_list
-            check_list=list(set(check_list))
-            json_make={}
-            
-            product_list=[data.replace(" ","\ ") for data in check_list]
-            product_query=" || ".join(product_list)
-            
-            category_query=" || ".join(category_list)
-            query=f'CATEGORY:({category_query}) && IS_RELEVANT:1 && PRODUCT:({product_query})'
-            params={"rows":2147483647,"fl":"DATA_EXTRACT,PRODUCT,CATEGORY"}
-            ag_result=list(solr_unstructure_data.search(query,**params))
-            for item in ag_result:
-                
-                region=item.get("CATEGORY")
         return result
     except Exception as e:
         return result

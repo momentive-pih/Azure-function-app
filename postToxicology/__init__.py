@@ -4,19 +4,8 @@ import azure.functions as func
 import pandas as pd
 import os 
 import pysolr
-
-solr_url_config="https://172.23.2.8:8983/solr"
-solr_product= pysolr.Solr(solr_url_config+"/product_information/", timeout=10,verify=False)
-solr_notification_status=pysolr.Solr(solr_url_config+'/sap_notification_status/', timeout=10,verify=False)
-solr_unstructure_data=pysolr.Solr(solr_url_config+'/unstructure_processed_data/', timeout=10,verify=False)
-solr_document_variant=pysolr.Solr(solr_url_config+'/sap_document_variant/', timeout=10,verify=False)
-solr_ghs_labeling_list_data=pysolr.Solr(solr_url_config+'/sap_ghs_labeling_list_data/', timeout=10,verify=False)
-solr_ontology=pysolr.Solr(solr_url_config+'/ontology/',timeout=10,verify=False)
-solr_registration_tracker=pysolr.Solr(solr_url_config+'/registration_tracker/',timeout=10,verify=False)
-product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","SUBCT"]
-solr_product_column = ",".join(product_column)
-file_access_path="https://devstorpih001.blob.core.windows.net/"
-sas_token=r"?sv=2019-02-02&ss=b&srt=sco&sp=rl&se=2020-05-29T20:19:29Z&st=2020-04-02T12:19:29Z&spr=https&sig=aodIg0rDPVsNEJY7d8AerhD79%2FfBO9LZGJdx2j9tsCM%3D"
+from __app__.shared_code import settings as config
+from __app__.shared_code import helper
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
@@ -29,271 +18,97 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(str(e))
     return func.HttpResponse(result,mimetype="application/json")
 
-def querying_solr_data(query,params):
-    try:
-        df_product_combine=pd.DataFrame()      
-        response = solr_product.search(query,**params)
-        result = json.dumps(list(response))
-        df_product_combine=pd.read_json(result,dtype=str)
-        if len(df_product_combine.columns)!=len(product_column):
-            dummy=pd.DataFrame([],columns=product_column)
-            df_product_combine=pd.concat([df_product_combine,dummy]).fillna("-")
-        df_product_combine=df_product_combine.fillna("-")
-        return df_product_combine
-    except Exception as e:
-        return df_product_combine
-
-def spec_constructor(req_body):
-    try:
-        last_specid=''
-        namlist=[]
-        speclist_data=[]
-        speclist_json={}
-        total_namprod=[]
-        total_spec=[]
-        spec_body=req_body.get("Spec_id")
-        for item in spec_body:           
-            spec_details=item.get("name").split(" | ")
-            spec_id=spec_details[0]
-            namprod=spec_details[1]
-            if spec_id!='':
-                total_spec.append(spec_id)
-            if (last_specid!=spec_id) and last_specid!='':
-                namstr=", ".join(namlist)
-                speclist_json[last_specid]=namstr
-                namlist=[]
-                namlist.append(namprod)
-                total_namprod.append(namprod)            
-            else:
-                namlist.append(namprod)  
-                total_namprod.append(namprod)           
-            last_specid=spec_id
-        namstr=", ".join(namlist)
-        speclist_json[last_specid]=namstr
-        return speclist_data,speclist_json,list(set(total_spec)),list(set(total_namprod))
-    except Exception as e:
-        return speclist_data,speclist_json,list(set(total_spec)),list(set(total_namprod))
-
-def get_material_details_on_selected_spec(product_rspec,params):
-    try:
-        query=f'TYPE:MATNBR && TEXT2:({product_rspec})'
-        matinfo=solr_product.search(query,**params)
-        matstr=[]
-        bdt_list=[]
-        material_list=[]
-        material_details=[]
-        for i in list(matinfo):
-            bdt=str(i.get("TEXT3")).strip()
-            bdt_list.append(bdt)
-            matnumber=str(i.get("TEXT1"))
-            material_list.append(matnumber)
-            desc=str(i.get("TEXT4"))
-            matjson={
-                        "bdt":bdt,
-                        "material_number":matnumber,
-                        "description":desc,
-                    }
-            if bdt:
-                bstr=bdt+" - "+matnumber+" - "+desc
-                matstr.append(bstr)
-            material_details.append(matjson)
-        material_list=list(set(material_list))
-        bdt_list=list(set(bdt_list))
-        return material_list,bdt_list,matstr,material_details
-    except Exception as e:
-        return [],[],[],[]
-
-def get_cas_details_on_selected_spec(product_rspec,params):
-    try:
-        cas_list=[]
-        query=f'TYPE:SUBIDREL && TEXT2:({product_rspec})'
-        temp_df=querying_solr_data(query,params)                       
-        column_value = list(temp_df["TEXT1"].unique())
-        product_list=[data.replace(" ","\ ") for data in column_value]
-        product_query=" || ".join(product_list)
-        temp_df=pd.DataFrame()
-        sub_category="PURE_SUB || REAL_SUB"
-        query=f'TYPE:NUMCAS && SUBCT:({sub_category}) && TEXT2:({product_query})'
-        temp_df=querying_solr_data(query,params)
-        cas_list = list(temp_df["TEXT1"].unique())
-        chemical_list= list(temp_df["TEXT3"].unique())
-        return cas_list,chemical_list,column_value
-    except Exception as e:
-        return cas_list
-
 def get_toxicology_details(req_body):
     try:
-        speclist_data,speclist_json,total_spec,total_namlist=spec_constructor(req_body)
-        json_make={}
-        toxicology_result={}
+        all_details_json,spec_list,material_list = helper.construct_common_level_json(req_body)
+        sub_category=req_body.get("Category_details").get("Subcategory")
         json_list=[]
-        for specid in speclist_json:
-            params={"rows":2147483647,"fl":solr_product_column}
-            material_list,bdt_list,matstr,material_details=get_material_details_on_selected_spec(specid,params)
-            cas_list,chemical_list,pspec_list=get_cas_details_on_selected_spec(specid,params)
-            total_namprod=(speclist_json[specid]).split(", ")
-            sub_category=req_body.get("Category_details").get("Subcategory")
-            check_product=bdt_list+total_namprod+cas_list
-            product_list=[data.replace(" ","\ ") for data in check_product if data!="None"]
-            product_query=" || ".join(product_list)
-            if sub_category=="Study Title and Date":
-                #product_check
-                query=f'IS_RELEVANT:1 && PRODUCT:({product_query}) && CATEGORY:Toxicology'
-                params={"rows":2147483647}
-                result=list(solr_unstructure_data.search(query,**params))
-                for data in result:
-                    product=data.get("PRODUCT")
-                    datastr=json.loads(data.get("DATA_EXTRACT"))
-                    json_make["product_Name"]=product
-                    json_make["ELA"]=''
-                    json_make["spec_Id"]=str(specid)+"-"+speclist_json[specid]
-                    json_make["test_Description"]=""
-                    json_make["study_Title"]=datastr.get("Study Title","")
-                    json_make["final_Report"]=datastr.get("Issue Date","")
-                    json_list.append(json_make)
-                    json_make={}
-                #finding ela/Y number
-                query=f'ONTOLOGY_KEY:({product_query})'
-                params={"rows":2147483647}
-                ela_key_json={}
-                ela_key_list=[]
-                ela_list=[]
-                result=list(solr_ontology.search(query,**params))
-                if len(result)>0:
-                    result_dumps = json.dumps(result)
-                    df_ela=pd.read_json(result_dumps,dtype=str)
-                    ela_key_list=list(df_ela[["ONTOLOGY_VALUE","ONTOLOGY_KEY"]])
-                    for ela,key in ela_key_list:
-                        ela_list.append(ela)
-                        ela_key_json[ela]=key
-                    ela_list=list(set(ela_list))
-                    product_list=[data.replace(" ","\ ") for data in ela_list]
-                    product_query=" || ".join(product_list)
-                    query=f'IS_RELEVANT:1 && PRODUCT:({product_query}) && CATEGORY:Toxicology'
-                    params={"rows":2147483647}
-                    result=list(solr_unstructure_data.search(query,**params))
-                    for data in result:
-                        product=data.get("PRODUCT")
-                        datastr=json.loads(data.get("DATA_EXTRACT"))
-                        json_make["product_Name"]=ela_key_json[product]
-                        json_make["ELA"]=product
-                        json_make["spec_Id"]=str(specid)+"-"+speclist_json[specid]
-                        json_make["test_Description"]=""
-                        json_make["study_Title"]=datastr.get("Study Title","")
-                        json_make["final_Report"]=datastr.get("Issue Date","")
+        if sub_category in config.toxicology_category:
+            category=config.toxicology_dict.get(sub_category)
+            toxicology_query=helper.unstructure_template(all_details_json,category)
+            params={"fl":config.unstructure_column_str}
+            unstructure_values,unstructure_df=helper.get_data_from_core(config.solr_unstructure_data,toxicology_query,params)        
+            selant=[]
+            silanes=[]             
+            if len(unstructure_values)>0:
+                for item in unstructure_values:
+                    try:
+                        json_make={}
+                        result_spec=item.get("SPEC_ID")
+                        ontology_value=item.get("ONTOLOGY_VALUE","")
+                        spec_id=helper.finding_spec_details(spec_list,result_spec)
+                        product=item.get("PRODUCT",config.hypen_delimiter)
+                        product_type=item.get("PRODUCT_TYPE",config.hypen_delimiter)
+                        datastr=json.loads(item.get("DATA_EXTRACT"))
+                        category=item.get("CATEGORY","")
+                        file_path=datastr.get("file_path","")
+                        file_split=file_path.split("/")
+                        file_source=''
+                        for source in config.file_sources:
+                            if source in file_split:
+                                file_source=source
+                                break
+                        json_make["product_Name"]=product
+                        json_make["product_Type"]=product_type
+                        json_make["file_Source"]=file_source
+                        json_make["ontology_value"]=ontology_value
+                        json_make["spec_Id"]=spec_id
+                        if sub_category=="Study Title and Date":
+                            json_make["test_Description"]=""
+                            json_make["filename"]=datastr.get("file_name",config.hypen_delimiter)
+                            if file_path !='':
+                                path=config.blob_file_path+file_path.replace("/dbfs/mnt/","")+config.sas_token
+                            else:
+                                path=''
+                            json_make["file_Path"]=path
+                            extract_field={}
+                            extract_field["study_Title"]=datastr.get("Study Title",config.hypen_delimiter)
+                            extract_field["final_Report"]=datastr.get("Issue Date",config.hypen_delimiter)
+                            json_make["extract_Field"]=extract_field
+                            json_list.append(json_make)
+                        elif sub_category=="Monthly Toxicology Study List" and category=="tox_study_silanes":
+                            json_make["product_Commercial_Name"]=product
+                            json_make["studies"]=datastr.get("Studies",config.hypen_delimiter)
+                            json_make["status"]=datastr.get("Status",config.hypen_delimiter)
+                            json_make["comments"]=datastr.get("Comments",config.hypen_delimiter)
+                            silanes.append(json_make)                  
+                        elif sub_category=="Monthly Toxicology Study List" and category=="tox_study_selant":
+                            json_make["test"]=datastr.get("Test",config.hypen_delimiter)
+                            json_make["actions"]=datastr.get("Actions",config.hypen_delimiter)
+                            json_make["date"]=datastr.get("date",config.hypen_delimiter)
+                            selant.append(json_make)
+                        elif sub_category=="Toxicology Summary":
+                            json_make["date_Of_Issue"]=datastr.get("Date",config.hypen_delimiter)
+                            path=config.blob_file_path+file_path.replace("/dbfs/mnt/","")+config.sas_token
+                            json_make["filename"]=datastr.get("file_name",config.hypen_delimiter)
+                            json_make["file_Path"]=path
+                            json_list.append(json_make)
+                    except Exception as e:
+                        pass
+            if sub_category=="Monthly Toxicology Study List":
+                monthly_studies={}
+                monthly_studies["selant"]=selant
+                monthly_studies["silanes"]=silanes
+                json_list.append(monthly_studies)                    
+        elif sub_category=="Toxicology Registration Tracker":
+            query=f'*:*'
+            tracker_values,tracker_df=helper.get_data_from_core(config.solr_registration_tracker,query)
+            if len(tracker_values)>0:
+                for data in tracker_values:
+                    try:
+                        json_make={}
+                        json_make["product_Name"]=data.get("PRODUCTNAME",config.hypen_delimiter)
+                        json_make["country_Name"]=data.get("COUNTRYNAME",config.hypen_delimiter)
+                        json_make["tonnage_Band"]=data.get("TONNAGEBAND",config.hypen_delimiter)
+                        json_make["study_Type"]=data.get("STUDYTYPE",config.hypen_delimiter)
+                        json_make["test_Method"]=data.get("TESTMETHOD",config.hypen_delimiter)
+                        json_make["test_Name"]=data.get("TESTNAME",config.hypen_delimiter)
+                        json_make["estimated_Timing"]=data.get("ESTIMATEDTIMING",config.hypen_delimiter)
+                        json_make["estimated_Cost"]=data.get("ESTIMATEDCOST",config.hypen_delimiter)
+                        json_make["new_Estimates"]=data.get("NEWESTIMATES",config.hypen_delimiter)
                         json_list.append(json_make)
-                        json_make={}
-                # toxicology_result["study_Title_And_Date"]=json_list
-            elif sub_category=="Monthly Toxicology Study List":
-                #product_check
-                params={"rows":2147483647}
-                selant=[]
-                silanes=[]
-                query=f'IS_RELEVANT:1 && PRODUCT:({product_query}) && CATEGORY:(tox_study_selant || tox_study_silanes)'
-                params={"rows":2147483647}
-                result=list(solr_unstructure_data.search(query,**params))
-                for data in result:
-                    if data["CATEGORY"]=="tox_study_silanes":
-                        product=data.get("PRODUCT")
-                        datastr=json.loads(data.get("DATA_EXTRACT"))
-                        json_make["product_Commercial_Name"]=product
-                        json_make["spec_Id"]=str(specid)+"-"+speclist_json[specid]
-                        json_make["studies"]=datastr.get("Studies","-")
-                        json_make["status"]=datastr.get("Status","-")
-                        json_make["comments"]=datastr.get("Comments","-")
-                        silanes.append(json_make)
-                        json_make={}
-                    else:
-                        product=data.get("PRODUCT")
-                        datastr=json.loads(data.get("DATA_EXTRACT"))
-                        json_make["spec_Id"]=str(specid)+"-"+speclist_json[specid]
-                        json_make["product"]=product
-                        json_make["test"]=datastr.get("Test","-")
-                        json_make["actions"]=datastr.get("Actions","-")
-                        json_make["date"]=datastr.get("date","-")
-                        selant.append(json_make)
-                        json_make={}
-                json_list=[]
-                json_make["selant"]=selant
-                json_make["silanes"]=silanes
-                json_list.append(json_make)
-            elif sub_category=="Toxicology Summary":
-                params={"rows":2147483647}
-                query=f'IS_RELEVANT:1 && PRODUCT:({product_query}) && CATEGORY:(Toxicology-summary)'
-                params={"rows":2147483647}
-                result=list(solr_unstructure_data.search(query,**params))
-                for data in result:
-                    product=data.get("PRODUCT")
-                    datastr=json.loads(data.get("DATA_EXTRACT"))
-                    path=datastr.get("file_path","-")
-                    json_make["date_Of_Issue"]=datastr.get("Date","-")
-                    json_make["filename"]=file_access_path+path.replace("/dbfs/mnt/","")+sas_token
-                    json_make["spec_Id"]=str(specid)+"-"+speclist_json[specid]
-                    json_list.append(json_make)
-                    json_make={}
-                # toxicology_result["toxicology_Summary"]=json_list
-            elif sub_category=="Toxicology Registration Tracker":
-                product_mapping={}
-                bdt_out=[]
-                namprod_out=[]
-                namsyn_out=[]
-                ontology_out=[]
-                params={"rows":2147483647,"fl":solr_product_column}
-                query=f'TYPE:NAMPROD && TEXT2:({specid}) && SUBCT:REAL_SUB'
-                temp_df=querying_solr_data(query,params) 
-                if 'TEXT3' in  list(temp_df.columns): 
-                    namsyn_list = list(temp_df["TEXT3"].unique())
-                #checking ontology in registration tracker
-                result=[]
-                total_search=bdt_list+total_namprod+namsyn_list+cas_list
-                product_list=[data.replace(" ","\ ") for data in total_search if (data!="None" and data!="-")]
-                total_query=" || ".join(product_list)
-                query=f'ONTOLOGY_KEY:({total_query})'
-                result=list(solr_ontology.search(query,**params))
-                result_dumps = json.dumps(result)
-                df_ela=pd.read_json(result_dumps,dtype=str)
-                ela_key_list=[]
-                if "ONTOLOGY_VALUE" in list(df_ela.columns):
-                    ela_key_list=list(df_ela["ONTOLOGY_VALUE"].unique())
-                for value in bdt_list:
-                    if value!='-':
-                        product_mapping[value]="BDT"
-                for value in total_namprod:
-                    if value!='-':
-                        product_mapping[value]="NAMPROD"
-                for value in namsyn_list:
-                    if value!='-':
-                        product_mapping[value]="NAMSYN"
-                for value in cas_list:
-                    if value!='-':
-                        product_mapping[value]="CASNUMBER"
-                for value in ela_key_list:
-                    if value!='-':
-                        product_mapping[value]="ONTOLOGY"
-                total_search=total_search+ela_key_list
-                #checking in registration tracker
-                product_list=[data.replace(" ","\ ") for data in total_search if data!="None" and  data!="-"]
-                total_query=" || ".join(product_list)
-                query=f'PRODUCTNAME:({total_query})'
-                params={"rows":2147483647}
-                result=list(solr_registration_tracker.search(query,**params))
-                json_list=[]
-                for data in result:
-                    json_make["spec_Id"]=str(specid)+"-"+speclist_json[specid]
-                    json_make["product_Name"]=data.get("PRODUCTNAME","-")
-                    json_make["product_Type"]=product_mapping.get(data.get("PRODUCTNAME","-"))
-                    json_make["country_Name"]=data.get("COUNTRYNAME","-")
-                    json_make["tonnage_Band"]=data.get("TONNAGEBAND","-")
-                    json_make["study_Type"]=data.get("STUDYTYPE","-")
-                    json_make["test_Method"]=data.get("TESTMETHOD","-")
-                    json_make["test_Name"]=data.get("TESTNAME","-")
-                    json_make["estimated_Timing"]=data.get("ESTIMATEDTIMING","-")
-                    json_make["estimated_Cost"]=data.get("ESTIMATEDCOST","-")
-                    json_make["new_Estimates"]=data.get("NEWESTIMATES","-")
-                    json_list.append(json_make)
-                    json_make={}
-                # toxicology_result["registartion_Tracker"]=json_list
+                    except Exception as e:
+                        pass   
         return json_list
     except Exception as e:
-        
         return []

@@ -64,7 +64,7 @@ def all_products(data):
             # query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && TYPE:(NUMCAS || NAMPROD || MATNBR)'    
             query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && -TYPE:SUBIDREL'
             logging.info(query)
-            print(query)
+            #print(query)
             df_product_combine=querying_solr_data(query,solr_product_params)
             rex=re.compile(r"(^{})".format(search_value),re.I)
             for item in search_category:

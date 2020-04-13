@@ -4,9 +4,8 @@ import azure.functions as func
 import pandas as pd
 import os 
 import pysolr
-
-solr_url_config="https://172.23.2.8:8983/solr"
-solr_ontology=pysolr.Solr(solr_url_config+'/ontology/', timeout=10,verify=False)
+from __app__.shared_code import settings as config
+from __app__.shared_code import helper
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
@@ -21,13 +20,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
 def get_ontology_details():
     try:
-        params={"rows":2147483647}
         query=f'*:*'
         ontology_json={}
         ontology_list=[]
         result=[]
-        ontolgy_result=list(solr_ontology.search(query,**params))
+        ontolgy_result,ontolgy_df=helper.get_data_from_core(config.solr_ontology,query)
         for item in ontolgy_result:
+            ontology_json={}
             ontology_json["key"]=item.get("ONTOLOGY_KEY","-")
             ontology_json["key_Category"]=item.get("KEY_TYPE","-")
             ontology_json["synonyms"]=item.get("ONTOLOGY_VALUE","-")
@@ -35,8 +34,7 @@ def get_ontology_details():
             ontology_json["created_Date"]=item.get("CREATED_DATE","-")
             ontology_json["updated_Date"]=item.get("UPDATED_DATE","-")
             ontology_json["synonyms"]=item.get("ONTOLOGY_VALUE","-")
-            ontology_list.append(ontology_json)
-            ontology_json={}
+            ontology_list.append(ontology_json)     
         result=[{"ontology_Details":ontology_list}]
         return result
     except Exception as e:

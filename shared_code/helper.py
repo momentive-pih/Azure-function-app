@@ -72,13 +72,13 @@ def product_level_creation(product_df,product_category_map,type,subct,key,level_
             value = str(value1).strip() + " | "+str(value2).strip()+" | "+str(value3).strip()
             out_dict={"name":value,"type":json_category,"key":key,"group":level_name+" ("+display_category+")"+" - "+str(total_count) }
             json_list.append(out_dict)
-        # print(json_list)
+        # #print(json_list)
         return json_list
     except Exception as e:
         return json_list
 
 def replace_character_for_querying(value_list):
-    replace={" ":"\ ","/":"\/","*":"\*"}
+    replace={" ":"\ ","/":"\/","*":"\*","(":"\(",")":"\)",":":"\:"}
     replaced_list=[data.translate(str.maketrans(replace)) for data in value_list if data!=None]
     replaced_query=" || ".join(replaced_list)
     return replaced_query
@@ -134,7 +134,7 @@ def construct_common_level_json(json_array,home_flag=""):
                 if prod_spec==spec_id:
                     all_details=item_arrange(all_details,prod_spec,"namprod",namprod)  
                     all_details=item_arrange(all_details,prod_spec,"synonyms",synonyms)
-                    print(all_details)
+                    #print(all_details)
         #material level classify
         if(json_array.get("Mat_Level")): 
             for matid in json_array.get("Mat_Level"):         
@@ -178,7 +178,7 @@ def construct_common_level_json(json_array,home_flag=""):
                             break
 
         last_specid=spec_id
-    print(all_details)
+    #print(all_details)
     return all_details,spec_list,list(set(material_list))
     
 def item_arrange(all_details,spec_id,prod_type,prod_value):
@@ -234,7 +234,7 @@ def unstructure_template(all_details,category):
             spec_id_section_query=or_delimiter.join(spec_id_section_list)
             unstructure_query=f'IS_RELEVANT:1 && CATEGORY:({category_query}) && ({spec_id_section_query})'
     except Exception as e:
-        print(e)
+        pass
     logging.info("unstrucure_query"+str(unstructure_query))
     return unstructure_query
 
@@ -251,5 +251,61 @@ def finding_spec_details(spec_list,unstructure_spec):
         pass
     return (config.pipe_delimitter).join(result_spec)
 
+def sfdc_template(all_details):
+    try:
+        unstructure_query=''
+        product_map={"namprod":"NAMPROD","bdt":"BDT","material_number":"MATERIAL\ NUMBER","cas_number":"NUMCAS","synonyms":"SYNONYMS","chemical_name":"CHEMICAL\ NAME","pure_spec_id":"PURE-SPECID"}
+        product_section_list=[]
+        or_delimiter=config.or_delimiter
+        spec_id_section=''
+        spec_id_section_list=[]
+        for specid in all_details:
+            try:
+                product_type_query=''
+                product_list=[]
+                product_value_query=''
+                product_query=''
+                product_section_list=[]
+                product_section_template=''
+                spec_query=f'REALSPECID:*{specid}*'
+                for prod_type in all_details.get(specid):
+                    try:
+                        if prod_type in product_map and len(all_details.get(specid).get(prod_type))>0:
+                            product_type_query=f'MATCHEDPRODUCTCATEGORY:{product_map.get(prod_type)}'
+                            product_list=all_details.get(specid).get(prod_type)
+                            replaced_query=replace_character_for_querying(product_list)
+                            product_value_query=f'MATCHEDPRODUCTVALUE:({replaced_query})'
+                            product_query=f'({product_type_query} && {product_value_query})'
+                            product_section_list.append(product_query)
+                    except Exception as e:
+                        pass
+                #adding real spec_id
+                product_type_query=f'MATCHEDPRODUCTCATEGORY:REAL-SPECID'
+                product_value_query=f'MATCHEDPRODUCTVALUE:({specid})'
+                product_query=f'({product_type_query} && {product_value_query})'
+                product_section_list.append(product_query)
+                if len(product_section_list)!=0:
+                    product_section_template=or_delimiter.join(product_section_list)
+                    spec_id_section=f'({spec_query} && ({product_section_template}))'
+                    spec_id_section_list.append(spec_id_section)
+            except Exception as e:
+                pass
+        if len(spec_id_section_list)>0:
+            spec_id_section_query=or_delimiter.join(spec_id_section_list)
+            sfdc_query=f'({spec_id_section_query})'
+    except Exception as e:
+        pass
+    logging.info("sfdc_query"+str(sfdc_query))
+    return sfdc_query 
 
-    
+def finding_phrase_text(key_value_df,value):
+    try:
+        text_str=config.hypen_delimiter
+        if (value!='' and value!=None and value!='None'):
+            key_list=value.split(";")      
+            if ("PHRKY" in list(key_value_df.columns)) and ("PTEXT" in list(key_value_df.columns)):
+                text_df=key_value_df[key_value_df["PHRKY"].isin(key_list)]
+                text_str=";".join(list(text_df["PTEXT"].unique()))
+    except Exception as e:
+        pass
+    return text_str

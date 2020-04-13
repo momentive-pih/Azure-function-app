@@ -3,7 +3,7 @@ import json
 import os
 import pysolr
 # solr_product= pysolr.Solr(os.environ["CONNECTIONSTRINGS:SOLRCONNECTIONSTRING"]+"/product_information/", timeout=10,verify=False)
-solr_product= pysolr.Solr("https://172.23.2.8:8983/solr/product_information/", timeout=10,verify=False)
+solr_product= pysolr.Solr("https://172.23.2.10:8983/solr/product_information/", timeout=10,verify=False)
 product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","SUBCT"]
 solr_product_column = ",".join(product_column)
 
@@ -53,7 +53,7 @@ def find_specid(data_json):
                     specid_details.append(val_json)
                 return specid_list,namprod_list,specid_details
             except Exception as e:
-                print(e)
+                pass
                 return [],[],[]
 
         for item in data_json:
@@ -115,5 +115,5 @@ def find_specid(data_json):
                 specid_list,namprod_list,specid_details=formatting(spec_count,specid_list,namprod_list,specid_details,product_query)                                
         return specid_details,specid_list,namprod_list   
     except Exception as e:
-        print(e)
+        pass
         return specid_details,specid_list,namprod_list

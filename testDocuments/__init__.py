@@ -23,5 +23,5 @@ def get_all_documents():
         
         return result_json
     except Exception as e:
-        print(e)
+        pass
 
