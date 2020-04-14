@@ -89,7 +89,7 @@ def get_product_attributes(req_body):
             for item in all_details_json:
                 json_make={}
                 json_make["spec_id"]=item
-                json_make["product_Identification"]=(config.comma_delimiter).join(all_details_json.get("namprod",[]))   
+                json_make["product_Identification"]=(config.comma_delimiter).join(all_details_json.get(item).get("namprod",[]))   
                 idtxt_df=result_df[(result_df["IDCAT"]=="NAM") & (result_df["IDTYP"]=="PROD_RLBL") & (result_df["LANGU"].isin(["E","","-"])) & (result_df["SUBID"]==item)]
                 idtxt=list(idtxt_df["IDTXT"].unique())
                 if len(idtxt)>0:
@@ -462,6 +462,7 @@ def get_product_attributes(req_body):
                         json_make["hundrd_unit"]=""
                         json_make["inci_Componant_Type"]=""
                         json_make["inci_value_unit"]=total_inci_value
+                        json_list.append(json_make)
                     return json_list
                 elif sub_category=="Legal Composition":
                     json_list=[]
@@ -469,6 +470,7 @@ def get_product_attributes(req_body):
                     legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)]
                     legal_svt_spec=[]
                     legal_comp={}
+                    total_legal_value=0
                     for item in req_body.get("CAS_Level"):
                         real_spec_list=item.get("real_Spec_Id")
                         for real in real_spec_list:
@@ -482,9 +484,20 @@ def get_product_attributes(req_body):
                                         json_make["ingredient_Name"]=item.get("chemical_Name")
                                         json_make["legal_Componant_Type"]=data.get("COMPT","-")
                                         json_make["legal_value"]=data.get("CVALU","-")
+                                        if data.get("CVALU","-") !="-":
+                                            total_legal_value+=float(data.get("CVALU",0))
                                         json_make["legal_unit"]=data.get("CUNIT","-")
                                         json_list.append(json_make) 
-                                break       
+                                break 
+                    if len(json_list)>0:
+                        json_make={}
+                        json_make["pure_spec_Id"]="Total"
+                        json_make["cas_Number"]=""
+                        json_make["ingredient_Name"]=""
+                        json_make["legal_Componant_Type"]=""
+                        json_make["legal_value"]=total_legal_value
+                        json_make["legal_unit"]=""
+                        json_list.append(json_make)
                     legal_comp["legal_composition"]=json_list
                     if validity=='REACH: REG_REACH':
                         json_list=[]

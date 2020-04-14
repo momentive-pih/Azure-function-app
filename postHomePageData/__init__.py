@@ -109,10 +109,16 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         params={"fl":config.notification_column_str}
         pcomp,pcomp_df=helper.get_data_from_core(config.solr_notification_status,query,params)
         if ("NOTIF" in list(pcomp_df.columns)) and len(pcomp)>0:
-            phrase_key=list(pcomp_df["NOTIF"].unique())
-            phrase_key_query=(config.or_delimiter).join(phrase_key)
+            phrase_key=(list(pcomp_df["NOTIF"].unique()))
+            phrase_split=";".join(phrase_key)
+            phrase_key=phrase_split.split(";")
+            phrase_key_query=helper.replace_character_for_querying(phrase_key)
             query=f'PHRKY:({phrase_key_query})'
             params={"fl":config.phrase_column_str}
+            # phrase_key=list(pcomp_df["NOTIF"].unique())
+            # phrase_key_query=(config.or_delimiter).join(phrase_key)
+            # query=f'PHRKY:({phrase_key_query})'
+            # params={"fl":config.phrase_column_str}
             key_value,key_value_df=helper.get_data_from_core(config.solr_phrase_translation,query,params)
             key_compare=key_value_df.values.tolist()
             negative_country=[]
@@ -120,14 +126,19 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
             for item in pcomp:
                 try:
                     place=item.get("RLIST",config.hypen_delimiter)
-                    key = item.get("NOTIF","")
-                    for pkey,ptext in key_compare:
-                        if pkey==key and ("y" in ptext.lower() and "positive" in ptext.lower()):
-                            positive_country.append(place)
-                            break
-                        elif pkey==key and ("n" in ptext.lower() and "negative" in ptext.lower()):
-                            negative_country.append(place)
-                            break
+                    key = str(item.get("NOTIF","")).strip()
+                    key_text=helper.finding_phrase_text(key_value_df,key)
+                    if ("y" in key_text.lower() and "positive" in key_text.lower()):
+                        positive_country.append(place)
+                    elif ("n" in key_text.lower() and "negative" in key_text.lower()):
+                        negative_country.append(place)
+                    # for pkey,ptext in key_compare:
+                    #     if pkey==key and ("y" in ptext.lower() and "positive" in ptext.lower()):
+                    #         positive_country.append(place)
+                    #         break
+                    #     elif pkey==key and ("n" in ptext.lower() and "negative" in ptext.lower()):
+                    #         negative_country.append(place)
+                    #         break
                 except Exception as e:
                     pass
             if len(negative_country)>4:
@@ -241,8 +252,16 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         home_page_details["Sales Information"]=sales_information
 
         #report data
+        report_flag='No'
+        spec_list_query=(config.or_delimiter).join(spec_list)
+        params={"fl":config.report_column_str}
+        core=config.solr_document_variant
+        query=f'SUBID:({spec_list_query})'
+        report_values,report_df=helper.get_data_from_core(core,query,params)
+        if len(report_values)>0:
+            report_flag='Yes'
         report_data.append({ "image":config.home_icon_report_data})
-        report_data.append({"Report Status" :""})
+        report_data.append({"Report Status" :report_flag})
         report_data.append({"tab_modal": "reportModal" })
         home_page_details["Report Data"]=report_data
 

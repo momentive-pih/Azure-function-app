@@ -38,7 +38,7 @@ def get_product_compliance_details(req_body):
                     phrase_key=phrase_key+(list(pcomp_df["ADDIN"].unique()))
                 phrase_split=";".join(phrase_key)
                 phrase_key=phrase_split.split(";")
-                phrase_key_query=(config.or_delimiter).join(phrase_key)
+                phrase_key_query=helper.replace_character_for_querying(phrase_key)
                 query=f'PHRKY:({phrase_key_query})'
                 params={"fl":config.phrase_column_str}
                 key_value,key_value_df=helper.get_data_from_core(config.solr_phrase_translation,query,params)
