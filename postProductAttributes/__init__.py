@@ -269,32 +269,36 @@ def get_product_attributes(req_body):
             result_df=result_df.fillna("-")  
             result_df=result_df.replace({"NULL":"-"})
             for item in all_details_json:
-                json_make={}
-                json_make["spec_id"]=item
-                json_make["product_Identification"]=(config.comma_delimiter).join(all_details_json.get("namprod",[]))   
-                idtxt_df=result_df[(result_df["IDCAT"]=="NAM") & (result_df["IDTYP"]=="PROD_RLBL") & (result_df["LANGU"].isin(["E","","-"])) & (result_df["SUBID"]==item)]
-                idtxt=list(idtxt_df["IDTXT"].unique())
-                if len(idtxt)>0:
-                    json_make["relabels"]=(config.comma_delimiter).join(idtxt)
-                else:
-                    json_make["relabels"]="-"
+                try:
+                    json_make={}
+                    json_make["spec_id"]=item
+                    json_make["product_Identification"]=(config.comma_delimiter).join(all_details_json.get(item).get("namprod",[]))   
+                    idtxt_df=result_df[(result_df["IDCAT"]=="NAM") & (result_df["IDTYP"]=="PROD_RLBL") & (result_df["LANGU"].isin(["E","","-"])) & (result_df["SUBID"]==item)]
+                    idtxt=list(idtxt_df["IDTXT"].unique())
+                    if len(idtxt)>0:
+                        json_make["relabels"]=(config.comma_delimiter).join(idtxt)
+                    else:
+                        json_make["relabels"]="-"
+                except Exception as e:
+                    pass
             #finding inciname
             display_inci_name=[]
             df_inci=result_df[result_df["IDTYP"]=='INCI']
             df_inci.drop_duplicates(inplace=True)
             if "IDTXT" in list(df_inci.columns):
                 inci_name=list(df_inci["IDTXT"].unique())
-                inci_query=helper.replace_character_for_querying(inci_name)
-                query=f'INCINAME:({inci_query}) && SUBID:({spec_join})'
-                inci_values,inci_df=helper.get_data_from_core(config.solr_inci_name,query) 
-                inci_df.drop_duplicates(inplace=True)
-                if "INCINAME" in list(inci_df.columns) and "BDTXT" in list(inci_df.columns):
-                    bdtxt_df=inci_df[["BDTXT","INCINAME"]]
-                    bdtxt_df.drop_duplicates(inplace=True)
-                    bdtxt_list=bdtxt_df.values.tolist()
-                    for bdtxt,inci in bdtxt_list:
-                        temp=bdtxt+(config.pipe_delimitter)+inci
-                        display_inci_name.append(temp)                 
+                if len(inci_name)>0:
+                    inci_query=helper.replace_character_for_querying(inci_name)
+                    query=f'INCINAME:({inci_query}) && SUBID:({spec_join})'
+                    inci_values,inci_df=helper.get_data_from_core(config.solr_inci_name,query) 
+                    inci_df.drop_duplicates(inplace=True)
+                    if "INCINAME" in list(inci_df.columns) and "BDTXT" in list(inci_df.columns):
+                        bdtxt_df=inci_df[["BDTXT","INCINAME"]]
+                        bdtxt_df.drop_duplicates(inplace=True)
+                        bdtxt_list=bdtxt_df.values.tolist()
+                        for bdtxt,inci in bdtxt_list:
+                            temp=bdtxt+(config.pipe_delimitter)+inci
+                            display_inci_name.append(temp)                    
             json_make["INCI_name"]=(config.comma_delimiter).join(display_inci_name)
             json_list.append(json_make)
             #finding material level
@@ -309,20 +313,23 @@ def get_product_attributes(req_body):
                 params={"fl":config.solr_product_column}
                 mat_values,mat_df=helper.get_data_from_core(config.solr_product,query,params) 
                 for item in mat_values:
-                    json_make={}
-                    material_number=item.get("TEXT1",config.hypen_delimiter)
-                    description=item.get("TEXT4",config.hypen_delimiter)
-                    bdt=item.get("TEXT3",config.hypen_delimiter)
-                    if str(item.get("TEXT5")).strip() != 'X':
+                    try:
+                        json_make={}
+                        material_number=item.get("TEXT1",config.hypen_delimiter)
+                        description=item.get("TEXT4",config.hypen_delimiter)
+                        bdt=item.get("TEXT3",config.hypen_delimiter)
+                        if str(item.get("TEXT5")).strip() != 'X':
+                            json_make["material_Number"]=material_number
+                            json_make["description"]=description
+                            json_make["bdt"]=bdt
+                            active_material.append(json_make)
+                            json_make={}
                         json_make["material_Number"]=material_number
                         json_make["description"]=description
                         json_make["bdt"]=bdt
-                        active_material.append(json_make)
-                        json_make={}
-                    json_make["material_Number"]=material_number
-                    json_make["description"]=description
-                    json_make["bdt"]=bdt
-                    all_material.append(json_make)
+                        all_material.append(json_make)
+                    except Exception as e:
+                        pass
             json_make={}
             json_make["product_Level"]=json_list
             json_make["active_material"]=active_material
@@ -342,15 +349,15 @@ def get_product_attributes(req_body):
                 hundrd_usage=[]
                 legal_usage=[]
                 if cas_query!='' and spec_query!='':
-                    # query=f'CSUBI:({cas_query}) && SUBID:({spec_query})'
-                    query=f'SUBID:({spec_query})'
+                    query=f'CSUBI:({cas_query}) && SUBID:({spec_query})'
+                    # query=f'SUBID:({spec_query})'
                     if sub_category=="Standard, 100 % & INCI Composition":
                         std_values,std_df=helper.get_data_from_core(config.solr_std_composition,query) 
-                        std_df=std_df[std_df["CSUBI"].isin(cas_list)]       
+                        # std_df=std_df[std_df["CSUBI"].isin(cas_list)]       
                         if "ZUSAGE" in list(std_df.columns):
                             std_usage=list(std_df["ZUSAGE"].unique())
                         hund_values,hund_df=helper.get_data_from_core(config.solr_hundrd_composition,query)
-                        hund_df=hund_df[hund_df["CSUBI"].isin(cas_list)]
+                        # hund_df=hund_df[hund_df["CSUBI"].isin(cas_list)]
                         if "ZUSAGE" in list(hund_df.columns):
                             hundrd_usage=list(hund_df["ZUSAGE"].unique())           
                         usage_catgory=std_usage+hundrd_usage
@@ -362,7 +369,7 @@ def get_product_attributes(req_body):
                     elif sub_category=="Legal Composition":
                         json_list=[]
                         legal_values,legal_df=helper.get_data_from_core(config.solr_legal_composition,query)  
-                        legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)] 
+                        # legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)] 
                         if "ZUSAGE" in list(legal_df.columns):
                             legal_usage=list(legal_df["ZUSAGE"].unique())
                         for i in list(set(legal_usage)):
@@ -372,8 +379,8 @@ def get_product_attributes(req_body):
                     return json_list         
             if validity is not None:
                 zusage_value=helper.replace_character_for_querying([validity])
-                # query=f'CSUBI:({cas_query}) && ZUSAGE:({zusage_value}) && SUBID:({spec_query})'    
-                query=f'ZUSAGE:({zusage_value}) && SUBID:({spec_query})'                       
+                query=f'CSUBI:({cas_query}) && ZUSAGE:({zusage_value}) && SUBID:({spec_query})'    
+                # query=f'ZUSAGE:({zusage_value}) && SUBID:({spec_query})'                       
                 if sub_category=="Standard, 100 % & INCI Composition":
                     std_result=[]
                     hundrd_result=[]
@@ -427,6 +434,34 @@ def get_product_attributes(req_body):
                                     json_make["ingredient_Name"]=item.get("chemical_Name")
                                     json_list.append(json_make)
                                 break
+                    if len(json_list)>0:
+                        total_std_value=0
+                        total_hundrd_value=0
+                        total_inci_value=0
+                        for item in json_list:
+                            try:
+                                if item.get("std_value") !="-":
+                                    total_std_value+=float(item.get("std_value"))
+                                if item.get("hundrd_value") !="-":
+                                    total_hundrd_value+=float(item.get("hundrd_value"))
+                                if item.get("inci_value_unit") !="-":
+                                    inci_list=[incv for incv in str(item.get("inci_value_unit")) if(incv.isdigit() or incv==".")]
+                                    inci_str="".join(inci_list)
+                                    total_inci_value+=float(inci_str)
+                            except Exception as e:
+                                pass
+                        json_make={}
+                        json_make["pure_spec_Id"]="Total"
+                        json_make["cas_Number"]=""
+                        json_make["ingredient_Name"]=""
+                        json_make["std_Componant_Type"]=""
+                        json_make["std_value"]=total_std_value
+                        json_make["std_unit"]=""
+                        json_make["hundrd_Componant_Type"]=""
+                        json_make["hundrd_value"]=total_hundrd_value
+                        json_make["hundrd_unit"]=""
+                        json_make["inci_Componant_Type"]=""
+                        json_make["inci_value_unit"]=total_inci_value
                     return json_list
                 elif sub_category=="Legal Composition":
                     json_list=[]

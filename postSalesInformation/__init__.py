@@ -21,6 +21,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 def get_sales_data_details(req_body):
     try:
         logging.info("sales info request"+f'{req_body}')
+        print(req_body)
         category=["SAP-BW"]
         material_level_data=req_body.get("Mat_Level")
         all_details_json,spec_list,material_list=helper.construct_common_level_json(req_body)
