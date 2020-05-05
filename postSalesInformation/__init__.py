@@ -48,7 +48,7 @@ def get_sales_data_details(req_body):
                                 sales_org.append(sales_org_str)
                             sales_kg_str=data_extract.get("SALES KG",0)
                             if sales_kg_str!= None:
-                                sales_kg=sales_kg+int(sales_kg_str)
+                                sales_kg=sales_kg+float(sales_kg_str)
                             sold_str=data_extract.get("Sold-to Customer Country","")
                             if sold_str!=None:
                                 region.append(sold_str)

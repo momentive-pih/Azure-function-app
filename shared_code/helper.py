@@ -4,7 +4,7 @@ import logging
 from . import settings as config
 solr_product=config.solr_product
 product_column = config.product_column
-unwanted_fields=["obsolete"]
+# unwanted_fields=["obsolete"]
 
 def querying_solr_data(query,params):
     try:
@@ -12,12 +12,23 @@ def querying_solr_data(query,params):
         response = solr_product.search(query,**params)
         result = json.dumps(list(response))
         df_product_combine=pd.read_json(result,dtype=str)
-        for item in unwanted_fields:
-            # unwanted_df=df_product_combine[df_product_combine["TEXT1"].str.contains(item,case=False,na=False,regex=False)]
-            # real_spec=list(unwanted_df["TEXT2"].unique())
-            df_product_combine=df_product_combine[~df_product_combine["TEXT1"].str.contains(item,case=False,na=False,regex=False)]
         if len(df_product_combine.columns)!=len(product_column):
             dummy=pd.DataFrame([],columns=product_column)
+            df_product_combine=pd.concat([df_product_combine,dummy])
+        df_product_combine=df_product_combine.fillna("-")   
+        df_product_combine=df_product_combine.replace({"nan":"-"})
+        return df_product_combine
+    except Exception as e:
+        return df_product_combine
+
+def intial_search_data(query,check_columns,params={}):
+    try:
+        params["rows"]=config.max_rows
+        response = solr_product.search(query,**params)
+        result = json.dumps(list(response))
+        df_product_combine=pd.read_json(result,dtype=str)   
+        if len(df_product_combine.columns)!=len(check_columns):
+            dummy=pd.DataFrame([],columns=check_columns)
             df_product_combine=pd.concat([df_product_combine,dummy])
         df_product_combine=df_product_combine.fillna("-")   
         df_product_combine=df_product_combine.replace({"nan":"-"})
@@ -35,15 +46,16 @@ def get_data_from_core(core,query,params={}):
     core_df=core_df.replace({"nan":"-"})
     return data_list,core_df
 
-
 def product_level_creation(product_df,product_category_map,type,subct,key,level_name,filter_flag="no"):
     try:
         json_list=[]
         if filter_flag=="no":
             if type !='' and subct !='':
                 temp_df=product_df[(product_df["TYPE"]==type) & (product_df["SUBCT"]==subct)]
+                temp_df=temp_df.drop(columns=["TYPE","SUBCT"])
             else:
                 temp_df=product_df[(product_df["TYPE"]==type)]
+                temp_df=temp_df.drop(columns=["TYPE"])
         else:
             temp_df=product_df
         
@@ -78,35 +90,35 @@ def product_level_creation(product_df,product_category_map,type,subct,key,level_
         return json_list
 
 def replace_character_for_querying(value_list):
-    replace={" ":"\ ","/":"\/","*":"\*","(":"\(",")":"\)",":":"\:"}
-    replaced_list=[data.translate(str.maketrans(replace)) for data in value_list if data!=None]
+    replace={" ":"\ ","/":"\/","*":"\*","(":"\(",")":"\)",":":"\:","[":"\[","]":"\]"}
+    replaced_list=[data.translate(str.maketrans(replace)) for data in value_list if (data!=None and str(data)!='-')]
     replaced_query=" || ".join(replaced_list)
     return replaced_query
 
 def finding_cas_details_using_real_specid(product_rspec,params):
     product_rspec=" || ".join(product_rspec)
-    query=f'TYPE:SUBIDREL && TEXT2:({product_rspec}) && SUBCT:REAL_SUB'
+    query=f'TYPE:SUBIDREL && TEXT2:({product_rspec}) && SUBCT:REAL_SUB && -TEXT6:X'
     spec_rel_df=querying_solr_data(query,params) 
     spec_rel_list=spec_rel_df[["TEXT1","TEXT2"]].values.tolist()
     column_value = list(spec_rel_df["TEXT1"].unique())
     spec_query=" || ".join(column_value)
-    query=f'TYPE:NUMCAS && SUBCT:PURE_SUB && TEXT2:({spec_query})'
+    query=f'TYPE:NUMCAS && SUBCT:PURE_SUB && TEXT2:({spec_query}) && -TEXT6:X'
     cas_df=querying_solr_data(query,params)                 
     #real spec will act as pure spec componant
-    query=f'TYPE:NUMCAS && TEXT2:({product_rspec})'
+    query=f'TYPE:NUMCAS && TEXT2:({product_rspec}) && -TEXT6:X'
     real_pure_spec_df=querying_solr_data(query,params)
     cas_df=pd.concat([cas_df,real_pure_spec_df])
     return cas_df,spec_rel_list
 
 def finding_product_details_using_real_specid(product_rspec,params):
     product_rspec=" || ".join(product_rspec)
-    query=f'TYPE:NAMPROD && SUBCT:REAL_SUB && TEXT2:({product_rspec})'
+    query=f'TYPE:NAMPROD && SUBCT:REAL_SUB && TEXT2:({product_rspec}) && -TEXT6:X'
     prod_df=querying_solr_data(query,params)
     return prod_df
 
 def finding_material_details_using_real_specid(product_rspec,params):
     product_rspec=" || ".join(product_rspec)
-    query=f'TYPE:MATNBR && TEXT2:({product_rspec})'
+    query=f'TYPE:MATNBR && TEXT2:({product_rspec}) && -TEXT6:X'
     material_df=querying_solr_data(query,params)
     return material_df
 
@@ -309,3 +321,31 @@ def finding_phrase_text(key_value_df,value):
     except Exception as e:
         pass
     return text_str
+
+def set_decimal_points(value):
+    if type(value)!=float:
+        value=float(value)
+    return "{:.4f}".format(value)
+
+def calculate_ppm_ppb(value,unit):
+    if unit.lower()=="ppm":
+        sub_value=(config.ppm)*(float(value))
+    elif unit.lower()=="ppb":
+        sub_value=(config.ppb)*(float(value))
+    else:
+        sub_value=float(value)
+    return sub_value
+
+def sort_json_values(json_list,sort_column,asc=True):
+    try:
+        json_list=[]
+        if len(json_list)>0:
+            dumps_json = json.dumps(json_list)
+            json_df=pd.read_json(dumps_json)
+            sorted_df=json_df.sort_values(by=sort_column,ascending=asc)  
+            sorted_dict=json.loads(sorted_df.to_json(orient='index'))
+            for item in sorted_dict:
+                json_list.append(sorted_dict.get(item))
+    except Exception as e:
+        pass
+    return json_list

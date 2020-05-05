@@ -96,7 +96,9 @@ def get_customer_communication_details(req_body):
                             json_list.append(json_make)
                     except Exception as e:
                         pass       
+        # elif sub_category=="Communication History" and ("case_Number" not in req_body) and ("selected_level" in req_body):
         elif sub_category=="Communication History" and ("case_Number" not in req_body):
+            logging.info(f'communication req body {req_body}')
             sfdc_query=helper.sfdc_template(all_details_json)
             params={"fl":config.sfdc_column_str}
             sfdc_values,sfdc_df=helper.get_data_from_core(config.solr_sfdc,sfdc_query,params)        
@@ -112,10 +114,11 @@ def get_customer_communication_details(req_body):
                     json_make={}
                     json_make["case_Number"]=row["CASENUMBER"]
                     json_make["manufacturing_Plant"]=row["MANUFACTURINGPLANT"]
-                    customer_name=(row["ACCOUNTNAME"]).split("||")
-                    json_make["customer_Name"]=(config.comma_delimiter).join(customer_name)
+                    # customer_name=(row["ACCOUNTNAME"]).split("||")
+                    # json_make["customer_Name"]=(config.comma_delimiter).join(customer_name)
+                    json_make["customer_Name"]=row["ACCOUNTNAME"]
                     json_make["key"]=row["MATCHEDPRODUCTVALUE"]
-                    json_make["key_Type"]=row["MATCHEDPRODUCTCATEGORY"]
+                    json_make["product_Type"]=row["MATCHEDPRODUCTCATEGORY"]
                     json_make["topic"]=row["REASON"]
                     json_make["tier_2_Owner"]=row["SOP_TIER_2_OWNER__C"]
                     json_make["bu"]=row["BU"]
@@ -140,7 +143,7 @@ def get_customer_communication_details(req_body):
                 for att in attachment_split:
                     if att!="NULL" and att!='':
                         path=att.split("/")
-                        file=(config.blob_file_path)+att+(config.sas_token)
+                        file=(config.blob_file_path)+att[1:]+(config.sas_token)
                         add_doc.append({"name":path[-1],"url":file})
                 json_make["attached_Docs"]=add_doc
                 json_list.append(json_make)

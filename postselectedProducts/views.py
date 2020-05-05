@@ -115,7 +115,7 @@ def selected_products(data_json,searched_product_flag="yes"):
             
             elif material_level_flag =='s' and material_count==1:
                 #finding real spec id
-                query=f'TYPE:MATNBR && TEXT1:{material_number}'
+                query=f'TYPE:MATNBR && TEXT1:{material_number} && -TEXT6:X'
                 temp_df=querying_solr_data(query,params)
                 real_spec_list = list(temp_df["TEXT2"].unique())
                 if product_level_flag =='' and cas_level_flag=='':
@@ -149,7 +149,7 @@ def selected_products(data_json,searched_product_flag="yes"):
 
             elif cas_level_flag=='s' and cas_count==1:
                 #finding real spec id
-                query=f'TYPE:SUBIDREL && TEXT1:{cas_pspec} && SUBCT:REAL_SUB'
+                query=f'TYPE:SUBIDREL && TEXT1:{cas_pspec} && SUBCT:REAL_SUB && -TEXT6:X'
                 temp_df=querying_solr_data(query,params)
                 spec_rel_list=temp_df[["TEXT1","TEXT2"]].values.tolist()
                 real_spec_list = list(temp_df["TEXT2"].unique())
@@ -189,7 +189,6 @@ def selected_products(data_json,searched_product_flag="yes"):
         else:
             searched_product_list=[]
             properties,selected_spec_list=basic_properties("product_level","material_level","cas_level",product_level_json,material_level_json,cas_level_json,[],[product_rspec])
-
         return_data["search_List"]=searched_product_list
         return_data["basic_properties"]=[properties]
         return_data["selected_spec_list"]=selected_spec_list
@@ -291,8 +290,6 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
                     if(spec_nam_json.get(specid)):
                         temp_json=json_make
                         new_list=spec_id_namprod_combination(specid,spec_nam_list,"material",temp_json)
-                        # for nam in spec_nam_json.get(specid):
-                        #     spec_nam_list.append(specid+"|"+nam) 
                         json_make["spec_Nam_List"]=new_list
                         json_make["real_Spec_Id"]=specid+" - "+(", ".join(spec_nam_json.get(specid)))  
                     else:
@@ -301,14 +298,6 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
                            
                     json_list.append(json_make)
                     desc=desc.strip()
-                    # if spec_active_mat_json.get(specid) == None:
-                    #     if len(desc)>0 and desc[0]!="^":
-                    #         spec_active_mat_json[specid]=1
-                    #     else:
-                    #         spec_active_mat_json[specid]=0
-                    # else:
-                    #     if len(desc)>0 and desc[0]!="^":
-                    #         spec_active_mat_json[specid]=spec_active_mat_json.get(specid)+1
                     json_make={}
                 except Exception as e:
                     pass
@@ -336,6 +325,7 @@ def basic_properties(p_flag,m_flag,c_flag,product_info,material_info,cas_info,sp
             cas_info=cas_info[columns]
             cas_info=cas_info.drop_duplicates()
             cas_info=cas_info.fillna("-")
+            cas_info=cas_info.groupby(['TEXT2','TEXT1'])['TEXT3'].apply(', '.join).reset_index()
             cas_result=cas_info.values.tolist()
             for pspec,cas,chemical in cas_result:
                 try:     

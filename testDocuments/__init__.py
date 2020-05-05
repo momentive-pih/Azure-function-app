@@ -4,13 +4,17 @@ from __app__.shared_code import settings as config
 from __app__.shared_code import helper
 solr_unstructure_data=config.solr_unstructure_data
 import json
-
+import os 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
         logging.info('postProductCompliance function processing a request.')
         result=[]
+        # print(f'AzureBlobStoragePath{os.environ.get("AzureBlobStoragePath")}')
+        # logging.info(f'AzureBlobStoragePath{os.environ.get("AzureBlobStoragePath")}')
+        # logging.info(f'AzureBlobStorageSasToken{os.environ.get("AzureBlobStorageSasToken")}')
+        
         # found_data = get_all_documents()
-        result = json.dumps(found_data)
+        # result = json.dumps(found_data)
     except Exception as e:
         logging.error(str(e))
     return func.HttpResponse(result,mimetype="application/json")

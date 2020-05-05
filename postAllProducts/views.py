@@ -21,7 +21,7 @@ category_with_key=config.category_with_key
 category_type = config.category_type
 search_category = config.search_category
 selected_categories=config.selected_categories
-querying_solr_data=helper.querying_solr_data
+querying_solr_data=helper.intial_search_data
 product_level_creation=helper.product_level_creation
 solr_product_params=config.solr_product_params
 
@@ -35,62 +35,66 @@ def all_products(data):
         search_value=''
         key_flag=''
         search=data
-        key_found=''
-        
+        key_found=''        
         if "*" in search:
             key_flag='s'
-            search_split=search.split('*')
+            search_split=search.split('*',1)
             search_key=search_split[0]+"*"
             search_value = search_split[1].strip()                                                        
         all_product_list=[]
         if key_flag=='s':
-            for key,category,base1,base2,level,combination_category in category_with_key:
+            for key,category,base1,base2,level,combination_category,check_column,check_fields in category_with_key:
                 if key==search_key.upper():
                     key_found='s'                                                  
                     if len(search_value)>0: 
-                        replace={" ":"\ ","/":"\/","*":"\*"}
-                        search_value = search_value.translate(str.maketrans(replace))                      
-                        # query=f'TYPE:{base1} && {category}:{search_value}* && -{category}:({ignore_query}) && SUBCT:{base2}'                       
-                        query=f'TYPE:{base1} && {category}:*{search_value}* && SUBCT:{base2}'                       
-                        df_product_combine=querying_solr_data(query,solr_product_params)
+                        search_value=helper.replace_character_for_querying([search_value])
+                        # query=f'TYPE:{base1} && {category}:*{search_value}* && SUBCT:{base2}'  
+                        query=f'TYPE:{base1} && {category}:*{search_value}* && SUBCT:{base2} && -TEXT6:X'                       
                     else:
-                        query=f'TYPE:{base1} && SUBCT:{base2}'
-                        df_product_combine=querying_solr_data(query,solr_product_params)
+                        # query=f'TYPE:{base1} && SUBCT:{base2}'  
+                        query=f'TYPE:{base1} && SUBCT:{base2} && -TEXT6:X'  
+                    df_product_combine=querying_solr_data(query,check_column,{"fl":check_fields})
                     all_product_list=all_product_list+product_level_creation(df_product_combine,combination_category,base1,base2,key,level,"yes")                                  
-                    break
+                    if key!="SPEC*":
+                        break
         if len(search)>=2 and key_found=='': 
-            replace={" ":"\ ","/":"\/","*":"\*"}
-            search_value = search.translate(str.maketrans(replace))   
+            search_value=helper.replace_character_for_querying([search])
             # query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && TYPE:(NUMCAS || NAMPROD || MATNBR)'    
-            query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && -TYPE:SUBIDREL'
-            logging.info(query)
-            #print(query)
-            df_product_combine=querying_solr_data(query,solr_product_params)
+            # query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && -TYPE:SUBIDREL'
+            query=f'(TEXT1:{search_value}* || TEXT2:{search_value}* || TEXT3:{search_value}*) && -TYPE:SUBIDREL && -TEXT6:X'
+            df_product_combine=querying_solr_data(query,config.product_column,solr_product_params)
             rex=re.compile(r"(^{})".format(search_value),re.I)
             for item in search_category:
                 edit_df=df_product_combine[df_product_combine[item].str.contains(rex,na=False)]
                 if len(edit_df)>0:
                     if item=="TEXT2": 
                         #for real specid 
-                        all_product_list=all_product_list+product_level_creation(edit_df,product_rspec_category,"NAMPROD","REAL_SUB","RSPEC*","PRODUCT-LEVEL")
+                        text2_df=edit_df[(config.plain_spec_column)]
+                        all_product_list=all_product_list+product_level_creation(text2_df,product_rspec_category,"NAMPROD","REAL_SUB","RSPEC*","PRODUCT-LEVEL")
                         #cas level details    
-                        all_product_list=all_product_list+product_level_creation(edit_df,cas_pspec_category,"NUMCAS","PURE_SUB","PSEPC*","CAS-LEVEL")
+                        all_product_list=all_product_list+product_level_creation(text2_df,cas_pspec_category,"NUMCAS","PURE_SUB","PSEPC*","CAS-LEVEL")
                     elif item=="TEXT1":
                         for ctype in category_type:
                             if ctype=="MATNBR":
-                                all_product_list=all_product_list+product_level_creation(edit_df,material_number_category,"MATNBR",'',"MAT*","MATERIAL-LEVEL")
+                                material_df=edit_df[(config.plain_material_column)]
+                                all_product_list=all_product_list+product_level_creation(material_df,material_number_category,"MATNBR",'',"MAT*","MATERIAL-LEVEL")
                             elif ctype=="NUMCAS":
-                                all_product_list=all_product_list+product_level_creation(edit_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL")
+                                text2_df=edit_df[(config.plain_spec_column)]
+                                all_product_list=all_product_list+product_level_creation(text2_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL")
                             else:
-                                all_product_list=all_product_list+product_level_creation(edit_df,product_nam_category,"NAMPROD","REAL_SUB","NAM*","PRODUCT-LEVEL")
+                                text2_df=edit_df[(config.plain_spec_column)]
+                                all_product_list=all_product_list+product_level_creation(text2_df,product_nam_category,"NAMPROD","REAL_SUB","NAM*","PRODUCT-LEVEL")
                     else:
                         for ctype in category_type:
                             if ctype == "MATNBR":
-                                all_product_list=all_product_list+product_level_creation(edit_df,material_bdt_category,"MATNBR",'',"BDT*","MATERIAL-LEVEL")
+                                material_df=edit_df[(config.plain_material_column)]
+                                all_product_list=all_product_list+product_level_creation(material_df,material_bdt_category,"MATNBR",'',"BDT*","MATERIAL-LEVEL")
                             elif ctype == "NAMPROD":
-                                all_product_list=all_product_list+product_level_creation(edit_df,product_namsyn_category,"NAMPROD","REAL_SUB","SYN*","PRODUCT-LEVEL")
+                                text2_df=edit_df[(config.plain_spec_column)]
+                                all_product_list=all_product_list+product_level_creation(text2_df,product_namsyn_category,"NAMPROD","REAL_SUB","SYN*","PRODUCT-LEVEL")
                             else:
-                                all_product_list=all_product_list+product_level_creation(edit_df,cas_chemical_category,"NUMCAS","PURE_SUB","CHEMICAL*","CAS-LEVEL") 
+                                text2_df=edit_df[(config.plain_spec_column)]
+                                all_product_list=all_product_list+product_level_creation(text2_df,cas_chemical_category,"NUMCAS","PURE_SUB","CHEMICAL*","CAS-LEVEL") 
         return all_product_list
     except Exception as e:
         return []

@@ -115,10 +115,6 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
             phrase_key_query=helper.replace_character_for_querying(phrase_key)
             query=f'PHRKY:({phrase_key_query})'
             params={"fl":config.phrase_column_str}
-            # phrase_key=list(pcomp_df["NOTIF"].unique())
-            # phrase_key_query=(config.or_delimiter).join(phrase_key)
-            # query=f'PHRKY:({phrase_key_query})'
-            # params={"fl":config.phrase_column_str}
             key_value,key_value_df=helper.get_data_from_core(config.solr_phrase_translation,query,params)
             key_compare=key_value_df.values.tolist()
             negative_country=[]
@@ -132,13 +128,6 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
                         positive_country.append(place)
                     elif ("n" in key_text.lower() and "negative" in key_text.lower()):
                         negative_country.append(place)
-                    # for pkey,ptext in key_compare:
-                    #     if pkey==key and ("y" in ptext.lower() and "positive" in ptext.lower()):
-                    #         positive_country.append(place)
-                    #         break
-                    #     elif pkey==key and ("n" in ptext.lower() and "negative" in ptext.lower()):
-                    #         negative_country.append(place)
-                    #         break
                 except Exception as e:
                     pass
             if len(negative_country)>4:
@@ -165,8 +154,8 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         home_page_details["Product compliance"]=product_compliance
         
         #customer communication
-        usflag="No"
-        euflag="No"
+        usflag="No letter found"
+        euflag="No letter found"
         for data in config.us_eu_category:
             if (data in founded_category) and data=="US-FDA":
                usflag="Yes" 
@@ -175,7 +164,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         customer_comm.append({"image": config.home_icon_customer_communication})
         customer_comm.append({"US FDA Compliance" : usflag})
         customer_comm.append({"EU Food Contact " : euflag})
-        customer_comm.append({"Top 3 Heavy Metal compositions":""})
+        # customer_comm.append({"Top 3 Heavy Metal compositions":""})
         customer_comm.append({"tab_modal": "communicationModal"})
         home_page_details["Customer Communication"]=customer_comm
 
@@ -195,10 +184,14 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
                 pass
         if len(study_title)>3:
             study_title=study_title[:3]
+        if len(study_title)>0:
+            study_str=(config.comma_delimiter).join(study_title)
+        else:
+            study_str=config.hypen_delimiter
         toxicology.append({ "image" : config.home_icon_toxicology})
-        toxicology.append({"Study Titles" : (config.comma_delimiter).join(study_title)})
+        toxicology.append({"Study Titles" : study_str})
         toxicology.append({"Toxicology Summary Report Available":summary_flag})
-        toxicology.append({"Pending Monthly Tox Studies": ""})
+        # toxicology.append({"Pending Monthly Tox Studies": ""})
         toxicology.append({ "tab_modal": "toxicologyModal"})
         home_page_details["Toxicology"]=toxicology
 
@@ -235,7 +228,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
                             sales_country.append(sold_str)
                         year_2019=str(sap_data.get('Fiscal year/period',"-")).split(".")
                         if len(year_2019)>0 and year_2019[1]=="2019":
-                            sales_kg=sales_kg+int(sap_data.get("SALES KG"))   
+                            sales_kg=sales_kg+float(sap_data.get("SALES KG"))   
                 except Exception as e:
                     pass            
         sales_country=list(set(sales_country))
@@ -244,6 +237,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         elif len(sales_country)>4:
             sold_country=", ".join(sales_country[0:5])
             sold_country=sold_country+" and more.."
+        sales_kg=helper.set_decimal_points(sales_kg)
         sales_kg=str(sales_kg)+" Kg"
         sales_information.append({"image":config.home_icon_sales_info})       
         sales_information.append({"Total sales in 2019" :sales_kg})
