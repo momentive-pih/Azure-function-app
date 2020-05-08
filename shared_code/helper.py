@@ -46,6 +46,24 @@ def get_data_from_core(core,query,params={}):
     core_df=core_df.replace({"nan":"-"})
     return data_list,core_df
 
+def namrod_bdt_product_details():
+    query=f'(TEXT1:* || TEXT3:*) && -TEXT6:X && TYPE:(NAMPROD || MATNBR) && SUBCT:REAL_SUB'
+    product_list,df_product=get_data_from_core(solr_product,query,{"fl":"TYPE, TEXT1, TEXT3"})
+    all_product=[]
+    if "TEXT1" in df_product.columns:
+        df_namprod=df_product[(df_product["TYPE"]=="NAMPROD") & (~df_product["TEXT1"].isin(["-"]))]
+        namprod=list(df_namprod["TEXT1"].unique())
+        for item in namprod:
+            namrow={"name":item,"type":"NAMPROD","key":"NAM*"}
+            all_product.append(namrow)
+    if "TEXT3" in df_product.columns:
+        df_bdt=df_product[(df_product["TYPE"]=="MATNBR") & (~df_product["TEXT3"].isin(["-"]))]
+        bdt=list(df_bdt["TEXT3"].unique())
+        for item in bdt:
+            bdtrow={"name":item,"type":"BDT","key":"BDT*"}
+            all_product.append(bdtrow)
+    return all_product
+
 def product_level_creation(product_df,product_category_map,type,subct,key,level_name,filter_flag="no"):
     try:
         json_list=[]
@@ -102,7 +120,7 @@ def finding_cas_details_using_real_specid(product_rspec,params):
     spec_rel_list=spec_rel_df[["TEXT1","TEXT2"]].values.tolist()
     column_value = list(spec_rel_df["TEXT1"].unique())
     spec_query=" || ".join(column_value)
-    query=f'TYPE:NUMCAS && SUBCT:PURE_SUB && TEXT2:({spec_query}) && -TEXT6:X'
+    query=f'TYPE:NUMCAS && SUBCT:(PURE_SUB || REAL_SUB) && TEXT2:({spec_query}) && -TEXT6:X'
     cas_df=querying_solr_data(query,params)                 
     #real spec will act as pure spec componant
     query=f'TYPE:NUMCAS && TEXT2:({product_rspec}) && -TEXT6:X'
@@ -349,3 +367,66 @@ def sort_json_values(json_list,sort_column,asc=True):
     except Exception as e:
         pass
     return json_list
+
+def SQL_connection():
+    try:
+        import pyodbc
+        connection_string=config.sql_url_config
+        try:
+            sql_conn = pyodbc.connect(connection_string)
+            return sql_conn
+            # execute query and save data in pandas df
+        except Exception as error:
+            pass
+    except Exception as error:
+            pass
+
+def spec_constructor(req_body):
+    try:
+        last_specid=''
+        namlist=[]
+        speclist_json={}
+        total_spec=[]
+        spec_body=req_body.get("Spec_id",[])
+        for item in spec_body:           
+            spec_details=item.get("name").split(config.pipe_delimitter)
+            if len(spec_details)>0:
+                spec_id=spec_details[0]
+                namprod=str(spec_details[1]).strip()
+            if spec_id!='':
+                total_spec.append(spec_id)
+            if (last_specid!=spec_id) and last_specid!='':
+                namstr=", ".join(namlist)
+                speclist_json[last_specid]=namstr
+                namlist=[]
+                if namprod != "-":
+                    namlist.append(namprod)        
+            else:
+                if namprod != "-":
+                    namlist.append(namprod)    
+            last_specid=spec_id
+        namstr=", ".join(namlist)
+        speclist_json[last_specid]=namstr
+        return speclist_json,list(set(total_spec))
+    except Exception as e:
+        return speclist_json,list(set(total_spec))
+
+# def main(req: func.HttpRequest) -> func.HttpResponse:
+#     logging.info('Python HTTP trigger function processed a request.')
+
+#     name = req.params.get('name')
+#     if not name:
+#         try:
+#             req_body = req.get_json()
+#         except ValueError:
+#             pass
+#         else:
+#             name = req_body.get('name')
+
+#     if name:
+#         return func.HttpResponse(f"Hello {name}!")
+#     else:
+#         return func.HttpResponse(
+#              "Please pass a name on the query string or in the request body",
+#              status_code=400
+#         )

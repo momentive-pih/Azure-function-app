@@ -1,13 +1,14 @@
 import pysolr
 import os
 solr_url_config=os.environ["CUSTOMCONNSTR_SOLRCONNECTIONSTRING"]
+sql_url_config=os.environ["CUSTOMCONNSTR_SQLCONNECTIONSTRING"]
 #Solar url connection and access
 solr_product= pysolr.Solr(solr_url_config+"/product_information/", timeout=10,verify=False)
 solr_notification_status=pysolr.Solr(solr_url_config+'/sap_notification_status/', timeout=10,verify=False)
 solr_unstructure_data=pysolr.Solr(solr_url_config+'/unstructure_processed_data/', timeout=10,verify=False)
 solr_document_variant=pysolr.Solr(solr_url_config+'/sap_document_variant/', timeout=10,verify=False)
 solr_ghs_labeling_list_data=pysolr.Solr(solr_url_config+'/sap_ghs_labeling_list_data/', timeout=10,verify=False)
-solr_ontology=pysolr.Solr(solr_url_config+'/ontology/',timeout=10,verify=False)
+solr_ontology=pysolr.Solr(solr_url_config+'/ontology/',always_commit=True,timeout=10,verify=False)
 solr_substance_identifier=pysolr.Solr(solr_url_config+'/sap_substance_identifier/',timeout=10,verify=False)
 solr_phrase_translation=pysolr.Solr(solr_url_config+'/sap_phrase_translation/',timeout=10,verify=False)
 solr_inci_name=pysolr.Solr(solr_url_config+'/inci_name_prod/',timeout=10,verify=False)
@@ -17,6 +18,13 @@ solr_legal_composition=pysolr.Solr(solr_url_config+'/sap_legal_composition/',tim
 solr_substance_volume_tracking=pysolr.Solr(solr_url_config+'/sap_substance_volume_tracking/',timeout=10,verify=False)
 solr_registration_tracker=pysolr.Solr(solr_url_config+'/registration_tracker/',timeout=10,verify=False)
 solr_sfdc=pysolr.Solr(solr_url_config+'/sfdc_identified_case/',timeout=10,verify=False)
+#other cores
+solr_allergen=pysolr.Solr(solr_url_config+'/sap_allergen/',timeout=10,verify=False)
+solr_biocompatibility_testing_pri=pysolr.Solr(solr_url_config+'/sap_biocompatibility_testing_pri/',timeout=10,verify=False)
+solr_bse_tse_gmo=pysolr.Solr(solr_url_config+'/sap_bse_tse_gmo/',timeout=10,verify=False)
+solr_epa=pysolr.Solr(solr_url_config+'/sap_epa/',timeout=10,verify=False)
+solr_product_regulatory_information=pysolr.Solr(solr_url_config+'/sap_product_regulatory_information/',timeout=10,verify=False)
+solr_registration_company_specific=pysolr.Solr(solr_url_config+'/sap_registration_company_specific/',timeout=10,verify=False)
 # Internationalization
 junk_column=["solr_id","_version_"]
 product_column = ["TYPE","TEXT1","TEXT2","TEXT3","TEXT4","TEXT5","TEXT6","SUBCT"]
@@ -25,6 +33,11 @@ spec_column_query="TEXT1,TEXT2,TEXT3"
 material_column_match=["TEXT1","TEXT3","TEXT4"]
 plain_material_column=["TYPE","TEXT1","TEXT3","TEXT4"]
 plain_spec_column=["TYPE","TEXT1","TEXT2","TEXT3","SUBCT"]
+ontology_spec_column=["TYPE","TEXT2","SUBCT"]
+ontology_material_column=["TYPE","TEXT1"]
+ontology_bdt_column=["TYPE","TEXT3"]
+ontology_text1_column=["TYPE","TEXT1","SUBCT"]
+ontology_text3_column=["TYPE","TEXT3","SUBCT"]
 material_column_query="TEXT1,TEXT3,TEXT4"
 product_nam_category = [["TEXT1","NAM PROD"],["TEXT2","REAL-SPECID"],["TEXT3","SYNONYMS"]]
 product_rspec_category = [["TEXT2","REAL-SPECID"],["TEXT1","NAM PROD"],["TEXT3","SYNONYMS"]]

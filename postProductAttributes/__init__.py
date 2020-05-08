@@ -95,6 +95,12 @@ def get_product_attributes(req_body):
                         result_spec=data.get("SPEC_ID")
                         spec_id=helper.finding_spec_details(spec_list,result_spec)
                         path=datastr.get("image_path",config.hypen_delimiter)
+                        if path.lower().endswith('pdf'):
+                            file_type='pdf'
+                        elif path.lower().endswith('png'):
+                            file_type='png'
+                        else:
+                            file_type='others'
                         file_split=path.split("/")
                         file_source=''
                         for source in config.file_sources:
@@ -106,6 +112,7 @@ def get_product_attributes(req_body):
                             filename=filename[:-4]
                         json_make["filename"]=filename
                         json_make["file_source"]=file_source
+                        json_make["file_Type"]=file_type
                         json_make["product"]=product
                         json_make["product_Type"]=product_type
                         json_make["prod_App"]=config.blob_file_path+path.replace("/dbfs/mnt/","")+config.sas_token
@@ -169,7 +176,8 @@ def get_product_attributes(req_body):
                                 path=(config.ghs_image_path)+file+(config.sas_token)
                                 symbols.append({"name":path})
                         json_make["symbols"]=symbols
-                        json_list.append(json_make)
+                        if str(data.get("ZUSAGE",config.hypen_delimiter).strip()).upper() != 'PUBLIC: REG_EU':
+                            json_list.append(json_make)
                     except Exception as e:
                         pass
             product_attributes_result.append({"ghs_Labeling":json_list})  
@@ -199,6 +207,12 @@ def get_product_attributes(req_body):
                         product_type=item.get("PRODUCT_TYPE",config.hypen_delimiter)
                         spec_id=helper.finding_spec_details(spec_list,result_spec) 
                         path=datastr.get("file_path",config.hypen_delimiter)
+                        if path.lower().endswith('pdf'):
+                            file_type='pdf'
+                        elif path.lower().endswith('png'):
+                            file_type='png'
+                        else:
+                            file_type='others'
                         file_split=path.split("/")
                         file_source=''
                         for source in config.file_sources:
@@ -216,15 +230,24 @@ def get_product_attributes(req_body):
                             else:
                                 json_make["fileName"]=config.hypen_delimiter
                             json_make["file_Path"]=(config.blob_file_path)+path.replace("/dbfs/mnt/","")+(config.sas_token)
+                            json_make["file_Type"]=file_type
                             chem_structure.append(json_make)
                         elif category=="molecular formula":
                             path=datastr.get("image_path","-")
+                            if path.lower().endswith('pdf'):
+                                file_type='pdf'
+                            elif path.lower().endswith('png'):
+                                file_type='png'
+                            else:
+                                file_type='others'
                             json_make["fileName"]=datastr.get("file_name",config.hypen_delimiter)
                             json_make["file_Path"]=(config.blob_file_path)+path.replace("/dbfs/mnt/","")+(config.sas_token)  
+                            json_make["file_Type"]=file_type
                             molecular_formula.append(json_make)               
                         elif category=="Molecular-Weight":
                             json_make["fileName"]=datastr.get("file_name",config.hypen_delimiter)
                             json_make["file_Path"]=(config.blob_file_path)+path.replace("/dbfs/mnt/","")+(config.sas_token)  
+                            json_make["file_Type"]=file_type
                             weight=datastr.get("Molecular Weight",config.hypen_delimiter)
                             ####
                             # edit_weight=weight.lower().replace("molecular weight","").strip()
@@ -244,6 +267,7 @@ def get_product_attributes(req_body):
                             else:
                                 json_make["fileName"]=config.hypen_delimiter
                             json_make["file_Path"]=(config.blob_file_path)+path.replace("/dbfs/mnt/","")+(config.sas_token)
+                            json_make["file_Type"]=file_type
                             man_flow_dg.append(json_make)
                             
                         elif category=="syn_flow_diagram":
@@ -253,6 +277,7 @@ def get_product_attributes(req_body):
                             else:
                                 json_make["fileName"]=config.hypen_delimiter
                             json_make["file_Path"]=(config.blob_file_path)+path.replace("/dbfs/mnt/","")+(config.sas_token)
+                            json_make["file_Type"]=file_type
                             synthesis_dg.append(json_make)
                             json_make={}
                     except Exception as e:
@@ -298,54 +323,71 @@ def get_product_attributes(req_body):
                 except Exception as e:
                     pass
             #finding inciname
+            query=f'TYPE:MATNBR && TEXT2:({spec_join}) && -TYPE:SUBIDREL && -TEXT6:X'
+            params={"fl":config.solr_product_column}
+            mat_values,mat_df=helper.get_data_from_core(config.solr_product,query,params) 
+            bdt=[]
+            if "TEXT3" in mat_df.columns:
+                bdt=list(mat_df["TEXT3"].unique())
             display_inci_name=[]
-            df_inci=result_df[result_df["IDTYP"]=='INCI']
-            df_inci.drop_duplicates(inplace=True)
-            if "IDTXT" in list(df_inci.columns):
-                inci_name=list(df_inci["IDTXT"].unique())
-                if len(inci_name)>0:
-                    inci_query=helper.replace_character_for_querying(inci_name)
-                    query=f'INCINAME:({inci_query}) && SUBID:({spec_join})'
-                    inci_values,inci_df=helper.get_data_from_core(config.solr_inci_name,query) 
-                    inci_df.drop_duplicates(inplace=True)
-                    if "INCINAME" in list(inci_df.columns) and "BDTXT" in list(inci_df.columns):
-                        bdtxt_df=inci_df[["BDTXT","INCINAME"]]
-                        bdtxt_df.drop_duplicates(inplace=True)
-                        bdtxt_list=bdtxt_df.values.tolist()
-                        for bdtxt,inci in bdtxt_list:
-                            temp=bdtxt+(config.pipe_delimitter)+inci
-                            display_inci_name.append(temp)                    
+            # for spec in all_details_json:
+            #     bdt+=all_details_json.get(spec).get("bdt",[])
+            bdt_query=helper.replace_character_for_querying(bdt)
+            query=f'BDTXT:({bdt_query}) && SUBID:({spec_join})'
+            inci_values,inci_df=helper.get_data_from_core(config.solr_inci_name,query) 
+            inci_df.drop_duplicates(inplace=True)
+            if "INCINAME" in list(inci_df.columns) and "BDTXT" in list(inci_df.columns):
+                bdtxt_df=inci_df[["BDTXT","INCINAME"]]
+                bdtxt_df.drop_duplicates(inplace=True)
+                bdtxt_list=bdtxt_df.values.tolist()
+                for bdtxt,inci in bdtxt_list:
+                    temp=bdtxt+(config.pipe_delimitter)+inci
+                    display_inci_name.append(temp)           
+            # display_inci_name=[]
+            # df_inci=result_df[result_df["IDTYP"]=='INCI']
+            # df_inci.drop_duplicates(inplace=True)
+            # if "IDTXT" in list(df_inci.columns):
+            #     inci_name=list(df_inci["IDTXT"].unique())
+            #     if len(inci_name)>0:
+            #         inci_query=helper.replace_character_for_querying(inci_name)
+            #         query=f'INCINAME:({inci_query}) && SUBID:({spec_join})'
+            #         inci_values,inci_df=helper.get_data_from_core(config.solr_inci_name,query) 
+            #         inci_df.drop_duplicates(inplace=True)
+            #         if "INCINAME" in list(inci_df.columns) and "BDTXT" in list(inci_df.columns):
+            #             bdtxt_df=inci_df[["BDTXT","INCINAME"]]
+            #             bdtxt_df.drop_duplicates(inplace=True)
+            #             bdtxt_list=bdtxt_df.values.tolist()
+            #             for bdtxt,inci in bdtxt_list:
+            #                 temp=bdtxt+(config.pipe_delimitter)+inci
+            #                 display_inci_name.append(temp)                    
             json_make["INCI_name"]=(config.comma_delimiter).join(display_inci_name)
             json_list.append(json_make)
             #finding material level
             materials=[]
-            for spec in all_details_json:
-                materials+=all_details_json.get(spec).get("material_number",[])
-            material_query=(config.or_delimiter).join(materials)
+            # for spec in all_details_json:
+            #     materials+=all_details_json.get(spec).get("material_number",[])
+            # material_query=(config.or_delimiter).join(materials)
             active_material=[]
             all_material=[]
-            if material_query!='':
-                query=f'TYPE:MATNBR && TEXT1:({material_query}) && TEXT2:({spec_join}) && -TYPE:SUBIDREL && -TEXT6:X'
-                params={"fl":config.solr_product_column}
-                mat_values,mat_df=helper.get_data_from_core(config.solr_product,query,params) 
-                for item in mat_values:
-                    try:
-                        json_make={}
-                        material_number=item.get("TEXT1",config.hypen_delimiter)
-                        description=item.get("TEXT4",config.hypen_delimiter)
-                        bdt=item.get("TEXT3",config.hypen_delimiter)
-                        if str(item.get("TEXT5")).strip() != 'X':
-                            json_make["material_Number"]=material_number
-                            json_make["description"]=description
-                            json_make["bdt"]=bdt
-                            active_material.append(json_make)
-                            json_make={}
+            # if material_query!='':
+            for item in mat_values:
+                try:
+                    json_make={}
+                    material_number=item.get("TEXT1",config.hypen_delimiter)
+                    description=item.get("TEXT4",config.hypen_delimiter)
+                    bdt=item.get("TEXT3",config.hypen_delimiter)
+                    if str(item.get("TEXT5")).strip() != 'X':
                         json_make["material_Number"]=material_number
                         json_make["description"]=description
                         json_make["bdt"]=bdt
-                        all_material.append(json_make)
-                    except Exception as e:
-                        pass
+                        active_material.append(json_make)
+                        json_make={}
+                    json_make["material_Number"]=material_number
+                    json_make["description"]=description
+                    json_make["bdt"]=bdt
+                    all_material.append(json_make)
+                except Exception as e:
+                    pass
             json_make={}
             json_make["product_Level"]=json_list
             json_make["active_material"]=active_material
@@ -450,7 +492,7 @@ def get_product_attributes(req_body):
                                     json_make["inci_Componant_Type"]="-"
                                     json_make["inci_value_unit"]="-"
                                 if std_flag=='s' or hundrd_flag=='s' or inci_flag=='s':
-                                    json_make["pure_spec_Id"]=item.get("pure_Spec_Id")
+                                    json_make["pure_spec_Id"]=str(item.get("pure_Spec_Id"))
                                     json_make["cas_Number"]=item.get("cas_Number")
                                     json_make["ingredient_Name"]=item.get("chemical_Name")
                                     json_list.append(json_make)
@@ -474,7 +516,7 @@ def get_product_attributes(req_body):
                         # #sort desceding order
                         if len(json_list)>0:
                             std_hund_result = json.dumps(json_list)
-                            std_hund_df=pd.read_json(std_hund_result)
+                            std_hund_df=pd.read_json(std_hund_result,dtype=str)
                             sorted_df=std_hund_df.sort_values(by=['std_cal_value'],ascending=False)  
                             sorted_dict=json.loads(sorted_df.to_json(orient='index'))
                             json_list=[]
@@ -511,7 +553,7 @@ def get_product_attributes(req_body):
                                     json_make={}
                                     if data.get("CSUBI")==item.get("pure_Spec_Id"):
                                         legal_svt_spec.append(item.get("pure_Spec_Id"))
-                                        json_make["pure_spec_Id"]=item.get("pure_Spec_Id")
+                                        json_make["pure_spec_Id"]=str(item.get("pure_Spec_Id"))
                                         json_make["cas_Number"]=item.get("cas_Number")
                                         json_make["ingredient_Name"]=item.get("chemical_Name")
                                         json_make["legal_Componant_Type"]=data.get("COMPT","-")
@@ -525,7 +567,7 @@ def get_product_attributes(req_body):
                     if len(json_list)>0:
                         # #sort desceding order
                         legal_result = json.dumps(json_list)
-                        legal_df=pd.read_json(legal_result)
+                        legal_df=pd.read_json(legal_result,dtype=str)
                         sorted_df=legal_df.sort_values(by=['legal_cal_value'],ascending=False)  
                         sorted_dict=json.loads(sorted_df.to_json(orient='index'))
                         json_list=[]
@@ -550,7 +592,8 @@ def get_product_attributes(req_body):
                             query=f'SUBID:({subid_list})'
                             svt_result,svt_df=helper.get_data_from_core(config.solr_substance_volume_tracking,query)        
                         presence_id=[]
-                        presence_id=list(svt_df["SUBID"].unique())
+                        if "SUBID" in svt_df.columns:
+                            presence_id=list(svt_df["SUBID"].unique())
                         for sub in presence_id:
                             json_make["pure_spec_Id"]=sub
                             svt_total_2018=0

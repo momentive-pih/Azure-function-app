@@ -4,12 +4,13 @@ import azure.functions as func
 import pandas as pd
 import os 
 import pysolr
+import logging
 from __app__.shared_code import settings as config
 from __app__.shared_code import helper
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
-        # logging.info('postProductCompliance function processing a request.')
+        logging.info('getOntologyManagement function processing a request.')
         result=[]
         found_data = get_ontology_details()
         result = json.dumps(found_data)
@@ -20,11 +21,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
 def get_ontology_details():
     try:
-        query=f'*:*'
+        query=f'KEY_TYPE:*'
         ontology_json={}
         ontology_list=[]
         result=[]
         ontolgy_result,ontolgy_df=helper.get_data_from_core(config.solr_ontology,query)
+        nam_bdt_details=helper.namrod_bdt_product_details()       
         for item in ontolgy_result:
             ontology_json={}
             ontology_json["key"]=item.get("ONTOLOGY_KEY","-")
@@ -35,9 +37,8 @@ def get_ontology_details():
             ontology_json["updated_Date"]=item.get("UPDATED_DATE","-")
             ontology_json["synonyms"]=item.get("ONTOLOGY_VALUE","-")
             ontology_list.append(ontology_json)     
-        result=[{"ontology_Details":ontology_list}]
+        result=[{"ontology_Details":ontology_list,"product_Details":nam_bdt_details}]
         return result
     except Exception as e:
         return result
-
 

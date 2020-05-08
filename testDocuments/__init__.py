@@ -10,7 +10,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         logging.info('postProductCompliance function processing a request.')
         result=[]
         # print(f'AzureBlobStoragePath{os.environ.get("AzureBlobStoragePath")}')
-        # logging.info(f'AzureBlobStoragePath{os.environ.get("AzureBlobStoragePath")}')
+        logging.info(f'{os.environ}')
         # logging.info(f'AzureBlobStorageSasToken{os.environ.get("AzureBlobStorageSasToken")}')
         
         # found_data = get_all_documents()

@@ -48,13 +48,15 @@ def all_products(data):
                     key_found='s'                                                  
                     if len(search_value)>0: 
                         search_value=helper.replace_character_for_querying([search_value])
-                        # query=f'TYPE:{base1} && {category}:*{search_value}* && SUBCT:{base2}'  
+                        # query=f'TYPE:{base1} && {category}:*{search_value}* && SUBCT:{base2}' 
+                        if base1=="NUMCAS":
+                            base2='*'
                         query=f'TYPE:{base1} && {category}:*{search_value}* && SUBCT:{base2} && -TEXT6:X'                       
                     else:
                         # query=f'TYPE:{base1} && SUBCT:{base2}'  
                         query=f'TYPE:{base1} && SUBCT:{base2} && -TEXT6:X'  
                     df_product_combine=querying_solr_data(query,check_column,{"fl":check_fields})
-                    all_product_list=all_product_list+product_level_creation(df_product_combine,combination_category,base1,base2,key,level,"yes")                                  
+                    all_product_list=all_product_list+product_level_creation(df_product_combine,combination_category,base1,"",key,level,"yes")                                  
                     if key!="SPEC*":
                         break
         if len(search)>=2 and key_found=='': 
@@ -73,6 +75,7 @@ def all_products(data):
                         all_product_list=all_product_list+product_level_creation(text2_df,product_rspec_category,"NAMPROD","REAL_SUB","RSPEC*","PRODUCT-LEVEL")
                         #cas level details    
                         all_product_list=all_product_list+product_level_creation(text2_df,cas_pspec_category,"NUMCAS","PURE_SUB","PSEPC*","CAS-LEVEL")
+                        all_product_list=all_product_list+product_level_creation(text2_df,cas_pspec_category,"NUMCAS","REAL_SUB","PSEPC*","CAS-LEVEL")
                     elif item=="TEXT1":
                         for ctype in category_type:
                             if ctype=="MATNBR":
@@ -81,6 +84,7 @@ def all_products(data):
                             elif ctype=="NUMCAS":
                                 text2_df=edit_df[(config.plain_spec_column)]
                                 all_product_list=all_product_list+product_level_creation(text2_df,cas_number_category,"NUMCAS","PURE_SUB","CAS*","CAS-LEVEL")
+                                all_product_list=all_product_list+product_level_creation(text2_df,cas_number_category,"NUMCAS","REAL_SUB","CAS*","CAS-LEVEL")
                             else:
                                 text2_df=edit_df[(config.plain_spec_column)]
                                 all_product_list=all_product_list+product_level_creation(text2_df,product_nam_category,"NAMPROD","REAL_SUB","NAM*","PRODUCT-LEVEL")
@@ -95,6 +99,7 @@ def all_products(data):
                             else:
                                 text2_df=edit_df[(config.plain_spec_column)]
                                 all_product_list=all_product_list+product_level_creation(text2_df,cas_chemical_category,"NUMCAS","PURE_SUB","CHEMICAL*","CAS-LEVEL") 
+                                all_product_list=all_product_list+product_level_creation(text2_df,cas_chemical_category,"NUMCAS","REAL_SUB","CHEMICAL*","CAS-LEVEL") 
         return all_product_list
     except Exception as e:
         return []

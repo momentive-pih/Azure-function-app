@@ -119,6 +119,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
             key_compare=key_value_df.values.tolist()
             negative_country=[]
             positive_country=[]
+            others=[]
             for item in pcomp:
                 try:
                     place=item.get("RLIST",config.hypen_delimiter)
@@ -128,29 +129,35 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
                         positive_country.append(place)
                     elif ("n" in key_text.lower() and "negative" in key_text.lower()):
                         negative_country.append(place)
+                    else:
+                        others.append(place)
                 except Exception as e:
                     pass
-            if len(negative_country)>4:
-                negative_country=negative_country[:4]
-            if len(positive_country)>4:
-                positive_country=positive_country[:4]
-            negative_str=(config.comma_delimiter).join(negative_country)
-            positive_str=(config.comma_delimiter).join(positive_country)
+            # if len(negative_country)>4:
+            #     negative_country=negative_country[:4]
+            # if len(positive_country)>4:
+            #     positive_country=positive_country[:4]
+            # negative_str=(config.comma_delimiter).join(negative_country)
+            # positive_str=(config.comma_delimiter).join(positive_country)
         product_compliance.append({"image":config.home_icon_product_compliance})
-        product_compliance.append({"Negative Regulatory Notification Lists":negative_str}) 
-        product_compliance.append({"Postive Regulatory Notification Lists":positive_str}) 
+        product_compliance.append({"Not in Compliance Regulatory notification count":len(negative_country)}) 
+        product_compliance.append({"In Compliance Regulatory notification count":len(positive_country)})
+        product_compliance.append({"Other Regulatory notification count":len(others)}) 
         product_compliance.append({"tab_modal": "complianceModal"})          
         
         #ag registartion
         active_region=[]
         inactive_region=[]
+        active_str="No active region found"
         for region in config.ag_registration_country:
             if region in founded_category:
                 active_region.append(config.ag_registration_country.get(region))
             else:
                 inactive_region.append(config.ag_registration_country.get(region))
-        product_compliance.append({"AG Registration active region status ":(config.comma_delimiter).join(active_region)})
-        product_compliance.append({"AG Registration inactive region status ":(config.comma_delimiter).join(inactive_region)})
+        if len(active_region)>0:
+            active_str=(config.comma_delimiter).join(active_region)
+        product_compliance.append({"AG Registration active region status ":active_str})
+        # product_compliance.append({"AG Registration inactive region status ":(config.comma_delimiter).join(inactive_region)})
         home_page_details["Product compliance"]=product_compliance
         
         #customer communication
@@ -194,7 +201,6 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         # toxicology.append({"Pending Monthly Tox Studies": ""})
         toxicology.append({ "tab_modal": "toxicologyModal"})
         home_page_details["Toxicology"]=toxicology
-
         #restricted_sub
         gadsl_fg='No'
         cal_fg="No"
@@ -238,9 +244,9 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
             sold_country=", ".join(sales_country[0:5])
             sold_country=sold_country+" and more.."
         sales_kg=helper.set_decimal_points(sales_kg)
-        sales_kg=str(sales_kg)+" Kg"
+        sales_kg=str(sales_kg)
         sales_information.append({"image":config.home_icon_sales_info})       
-        sales_information.append({"Total sales in 2019" :sales_kg})
+        sales_information.append({"Total sales in 2019(Kg)" :sales_kg})
         sales_information.append({"Regions where sold" :sold_country})
         sales_information.append({"tab_modal": "salesModal"})
         home_page_details["Sales Information"]=sales_information

@@ -120,5 +120,23 @@
                           "requestOverrides": {
                               "backend.request.headers.Accept": "application/xml",
                               "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
-                          }}
+                          }},"proxy13": {
+                            "matchCondition": {
+                                "methods": [ "POST" ],
+                                "route": "/api/postUpdateOntologyManagement"
+                            },
+                            "backendUri": "https://localhost/api/postUpdateOntologyManagement",
+                            "requestOverrides": {
+                                "backend.request.headers.Accept": "application/xml",
+                                "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
+                            }},"proxy14": {
+                                "matchCondition": {
+                                    "methods": [ "POST" ],
+                                    "route": "/api/postOtherDetails"
+                                },
+                                "backendUri": "https://localhost/api/postOtherDetails",
+                                "requestOverrides": {
+                                    "backend.request.headers.Accept": "application/xml",
+                                    "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
+                                }}
 }}
