@@ -166,16 +166,23 @@ def get_product_attributes(req_body):
                         #symbols
                         symbols=[]
                         path_list=[]
+                        symbol_text=[]
                         symbol_value=str(data.get("SYMBL","")).strip()
                         key_list=symbol_value.split(';')
                         if len(key_list)>0 and ("PHRKY" in list(key_value_df.columns)) and ("GRAPH" in list(key_value_df.columns)):
                             text_df=key_value_df[key_value_df["PHRKY"].isin(key_list)]
                             path_list=list(text_df["GRAPH"].unique())
+                            text_list=list(text_df["PTEXT"].unique())
                         if len(path_list)>0:
                             for file in path_list:
                                 path=(config.ghs_image_path)+file+(config.sas_token)
                                 symbols.append({"name":path})
+                        # if len(text_list)>0:
+                        #     for text in 
+                        #     symbol_text.append(file)
+                                
                         json_make["symbols"]=symbols
+                        json_make["symbols_Text"]=(config.comma_delimiter).join(text_list)
                         if str(data.get("ZUSAGE",config.hypen_delimiter).strip()).upper() != 'PUBLIC: REG_EU':
                             json_list.append(json_make)
                     except Exception as e:
@@ -430,10 +437,12 @@ def get_product_attributes(req_body):
                         # legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)] 
                         if "ZUSAGE" in list(legal_df.columns):
                             legal_usage=list(legal_df["ZUSAGE"].unique())
+
                         for i in list(set(legal_usage)):
                             json_make={}
                             json_make["name"]=i
-                            json_list.append(json_make)
+                            if 'PUBLIC: REG_EU' not in i: 
+                                json_list.append(json_make)
                     return json_list         
             if validity is not None:
                 zusage_value=helper.replace_character_for_querying([validity])
