@@ -125,10 +125,14 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
                     place=item.get("RLIST",config.hypen_delimiter)
                     key = str(item.get("NOTIF","")).strip()
                     key_text=helper.finding_phrase_text(key_value_df,key)
-                    if ("y" in key_text.lower() and "positive" in key_text.lower()):
+                    if key_text.lower().strip() in config.in_compliance_notification_status:
                         positive_country.append(place)
-                    elif ("n" in key_text.lower() and "negative" in key_text.lower()):
+                    elif key_text.lower().strip() in config.not_in_compliance_notification_status:
                         negative_country.append(place)
+                    # if ("y" in key_text.lower() and "positive" in key_text.lower()):
+                    #     positive_country.append(place)
+                    # elif ("n" in key_text.lower() and "negative" in key_text.lower()):
+                    #     negative_country.append(place)
                     else:
                         others.append(place)
                 except Exception as e:
@@ -140,8 +144,8 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
             # negative_str=(config.comma_delimiter).join(negative_country)
             # positive_str=(config.comma_delimiter).join(positive_country)
         product_compliance.append({"image":config.home_icon_product_compliance})
-        product_compliance.append({"Not in Compliance Regulatory notification count":len(negative_country)}) 
         product_compliance.append({"In Compliance Regulatory notification count":len(positive_country)})
+        product_compliance.append({"Not in Compliance Regulatory notification count":len(negative_country)}) 
         product_compliance.append({"Other Regulatory notification count":len(others)}) 
         product_compliance.append({"tab_modal": "complianceModal"})          
         

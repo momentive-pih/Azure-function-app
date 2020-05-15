@@ -411,6 +411,18 @@ def spec_constructor(req_body):
     except Exception as e:
         return speclist_json,list(set(total_spec))
 
+def find_ontology_value(search_value):
+    try:
+        query=f'KEY_TYPE:* && ONTOLOGY_VALUE:{search_value}'
+        ontolgy_result,ontolgy_df=get_data_from_core(config.solr_ontology,query)
+        if "KEY_TYPE" in ontolgy_df.columns and "ONTOLOGY_KEY" in ontolgy_df.columns:
+            search_key=list(ontolgy_df["KEY_TYPE"].unique())
+            search_value=list(ontolgy_df["ONTOLOGY_KEY"].unique())
+            return search_value[0],search_key[0]
+        else:
+            return "",""
+    except Exception as e:
+        return "",""
 # def main(req: func.HttpRequest) -> func.HttpResponse:
 #     logging.info('Python HTTP trigger function processed a request.')
 

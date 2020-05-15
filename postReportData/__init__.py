@@ -41,9 +41,20 @@ def get_report_data_details(req_body):
                     specid=data.get("SUBID")
                     namprod=all_details_json.get(specid).get("namprod")
                     material=all_details_json.get(specid).get("material_number")
+                    region=str(data.get("RGVID","")).strip()
+                    category=str(data.get("REPTY",config.hypen_delimiter)).strip()
+                    variant_region=""
+                    if region !='' and "MSDS" in category:
+                        # if "MSDS_" in region:
+                        edited_region=region.replace("_"," ").strip()
+                        variant_region=config.report_data_region_code.get(edited_region,"")
+                        # elif "MSDS " in region:
+                        #     edited_region=region.replace("MSDS ","").strip()
+                        #     variant_region=config.report_data_region_code.get(edited_region,"")
                     report_json={
                         "category":str(data.get("REPTY",config.hypen_delimiter)).strip(),
                         "generation_Variant":str(data.get("RGVID",config.hypen_delimiter)).strip(),
+                        "region":variant_region,
                         "language":str(data.get("LANGU",config.hypen_delimiter)).strip(),
                         "version":str(data.get("VERSN",config.hypen_delimiter)).strip(),
                         "released_on":date_format,             

@@ -153,6 +153,10 @@ def get_product_attributes(req_body):
                         json_make["signal_Word"]=helper.finding_phrase_text(key_value_df,str(data.get("SIGWD","")).strip())
                         json_make["hazard_Statements"]=helper.finding_phrase_text(key_value_df,str(data.get("HAZST","")).strip())
                         json_make["prec_Statements"]=helper.finding_phrase_text(key_value_df,str(data.get("PRSTG","")).strip())
+                        json_make["prstp"]=helper.finding_phrase_text(key_value_df,str(data.get("PRSTP","")).strip())
+                        json_make["prstr"]=helper.finding_phrase_text(key_value_df,str(data.get("PRSTR","")).strip())
+                        json_make["prsts"]=helper.finding_phrase_text(key_value_df,str(data.get("PRSTS","")).strip())
+                        json_make["prstd"]=helper.finding_phrase_text(key_value_df,str(data.get("PRSTD","")).strip())
                         add_info=helper.finding_phrase_text(key_value_df,str(data.get("ADDIN","")).strip())
                         remarks=helper.finding_phrase_text(key_value_df,str(data.get("REMAR","")).strip())
                         add_remarks=config.hypen_delimiter
@@ -167,6 +171,7 @@ def get_product_attributes(req_body):
                         symbols=[]
                         path_list=[]
                         symbol_text=[]
+                        text_list=[]
                         symbol_value=str(data.get("SYMBL","")).strip()
                         key_list=symbol_value.split(';')
                         if len(key_list)>0 and ("PHRKY" in list(key_value_df.columns)) and ("GRAPH" in list(key_value_df.columns)):
@@ -179,8 +184,7 @@ def get_product_attributes(req_body):
                                 symbols.append({"name":path})
                         # if len(text_list)>0:
                         #     for text in 
-                        #     symbol_text.append(file)
-                                
+                        #     symbol_text.append(file)                       
                         json_make["symbols"]=symbols
                         json_make["symbols_Text"]=(config.comma_delimiter).join(text_list)
                         if str(data.get("ZUSAGE",config.hypen_delimiter).strip()).upper() != 'PUBLIC: REG_EU':
@@ -297,6 +301,7 @@ def get_product_attributes(req_body):
                 product_attributes_result.append({"manufacture_Flow":man_flow_dg})
                 product_attributes_result.append({"synthesis_Diagram":synthesis_dg})
         elif sub_category=="Composition":
+            logging.info(f"product_attributes_request_body {req_body}")
             all_details_json,spec_list,material_list = helper.construct_common_level_json(req_body)
             idtxt=[]
             #finding Relables
@@ -350,30 +355,12 @@ def get_product_attributes(req_body):
                 for bdtxt,inci in bdtxt_list:
                     temp=bdtxt+(config.pipe_delimitter)+inci
                     display_inci_name.append(temp)           
-            # display_inci_name=[]
-            # df_inci=result_df[result_df["IDTYP"]=='INCI']
-            # df_inci.drop_duplicates(inplace=True)
-            # if "IDTXT" in list(df_inci.columns):
-            #     inci_name=list(df_inci["IDTXT"].unique())
-            #     if len(inci_name)>0:
-            #         inci_query=helper.replace_character_for_querying(inci_name)
-            #         query=f'INCINAME:({inci_query}) && SUBID:({spec_join})'
-            #         inci_values,inci_df=helper.get_data_from_core(config.solr_inci_name,query) 
-            #         inci_df.drop_duplicates(inplace=True)
-            #         if "INCINAME" in list(inci_df.columns) and "BDTXT" in list(inci_df.columns):
-            #             bdtxt_df=inci_df[["BDTXT","INCINAME"]]
-            #             bdtxt_df.drop_duplicates(inplace=True)
-            #             bdtxt_list=bdtxt_df.values.tolist()
-            #             for bdtxt,inci in bdtxt_list:
-            #                 temp=bdtxt+(config.pipe_delimitter)+inci
-            #                 display_inci_name.append(temp)                    
+                           
             json_make["INCI_name"]=(config.comma_delimiter).join(display_inci_name)
             json_list.append(json_make)
             #finding material level
-            materials=[]
-            # for spec in all_details_json:
-            #     materials+=all_details_json.get(spec).get("material_number",[])
-            # material_query=(config.or_delimiter).join(materials)
+            spec_with_namprod=f"{spec_list[0]} - {product_identify}"
+            materials=[]            
             active_material=[]
             all_material=[]
             # if material_query!='':
@@ -387,18 +374,44 @@ def get_product_attributes(req_body):
                         json_make["material_Number"]=material_number
                         json_make["description"]=description
                         json_make["bdt"]=bdt
+                        json_make["real_Spec_Id"]=spec_with_namprod
                         active_material.append(json_make)
                         json_make={}
                     json_make["material_Number"]=material_number
                     json_make["description"]=description
                     json_make["bdt"]=bdt
+                    json_make["real_Spec_Id"]=spec_with_namprod
                     all_material.append(json_make)
                 except Exception as e:
-                    pass
+                    pass     
+            #Finding usage for compositon 
+            cas_list=[]     
+            for spec in all_details_json:
+                cas_list+=all_details_json.get(spec).get("pure_spec_id")
+            cas_query=(config.or_delimiter).join(cas_list)
+            spec_query=(config.or_delimiter).join(spec_list)  
+            std_hund_list,usage_catgory,legal_list,legal_usage=find_zusage(all_details_json,cas_query,spec_query)           
+            if len(usage_catgory)>0:
+                validity=usage_catgory[0]
+                std_values=find_std_hundrd_composition_details(validity,cas_query,spec_query,req_body,all_details_json,spec_with_namprod)
+            else:
+                std_values=[]
+                std_hund_list=[]
+            if len(legal_usage)>0:
+                validity=legal_usage[0]   
+                legal_values=find_legal_composition_details(validity,cas_query,spec_query,req_body,all_details_json,cas_list,spec_with_namprod)
+            else:
+                legal_values={"legal_composition":[],"svt":[]}
+                legal_list=[]
+            #finding default value for std composition
             json_make={}
             json_make["product_Level"]=json_list
             json_make["active_material"]=active_material
             json_make["all_material"]=all_material
+            json_make["std_hund_usage"]=std_hund_list
+            json_make["legal_usage"]=legal_list
+            json_make["std_values"]=std_values
+            json_make["legal_values"]=legal_values
             product_attributes_result=[json_make]
         elif sub_category in ["Standard, 100 % & INCI Composition","Legal Composition"]:
             all_details_json,spec_list,material_list = helper.construct_common_level_json(req_body)
@@ -410,288 +423,317 @@ def get_product_attributes(req_body):
             cas_query=(config.or_delimiter).join(cas_list)
             spec_query=(config.or_delimiter).join(spec_list)
             if validity is None:
-                std_usage=[]
-                hundrd_usage=[]
-                legal_usage=[]
-                if cas_query!='' and spec_query!='':
-                    query=f'CSUBI:({cas_query}) && SUBID:({spec_query})'
-                    # query=f'SUBID:({spec_query})'
-                    if sub_category=="Standard, 100 % & INCI Composition":
-                        std_values,std_df=helper.get_data_from_core(config.solr_std_composition,query) 
-                        # std_df=std_df[std_df["CSUBI"].isin(cas_list)]       
-                        if "ZUSAGE" in list(std_df.columns):
-                            std_usage=list(std_df["ZUSAGE"].unique())
-                        hund_values,hund_df=helper.get_data_from_core(config.solr_hundrd_composition,query)
-                        # hund_df=hund_df[hund_df["CSUBI"].isin(cas_list)]
-                        if "ZUSAGE" in list(hund_df.columns):
-                            hundrd_usage=list(hund_df["ZUSAGE"].unique())           
-                        usage_catgory=std_usage+hundrd_usage
-                        json_list=[]
-                        for i in list(set(usage_catgory)):
-                            json_make={}
-                            json_make["name"]=i
-                            json_list.append(json_make)   
-                    elif sub_category=="Legal Composition":
-                        json_list=[]
-                        legal_values,legal_df=helper.get_data_from_core(config.solr_legal_composition,query)  
-                        # legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)] 
-                        if "ZUSAGE" in list(legal_df.columns):
-                            legal_usage=list(legal_df["ZUSAGE"].unique())
-
-                        for i in list(set(legal_usage)):
-                            json_make={}
-                            json_make["name"]=i
-                            if 'PUBLIC: REG_EU' not in i: 
-                                json_list.append(json_make)
-                    return json_list         
-            if validity is not None:
-                zusage_value=helper.replace_character_for_querying([validity])
-                query=f'CSUBI:({cas_query}) && ZUSAGE:({zusage_value}) && SUBID:({spec_query})'    
-                # query=f'ZUSAGE:({zusage_value}) && SUBID:({spec_query})'                       
+                std_hund_list,usage_catgory,legal_list,legal_usage=find_zusage(all_details_json,cas_query,spec_query)
                 if sub_category=="Standard, 100 % & INCI Composition":
-                    std_result=[]
-                    hundrd_result=[]
-                    inci_result=[]
-                    std_values,std_df=helper.get_data_from_core(config.solr_std_composition,query)        
-                    hund_values,hund_df=helper.get_data_from_core(config.solr_hundrd_composition,query)
-                    cidp_query=helper.unstructure_template(all_details_json,["CIDP"])
-                    params={"fl":config.unstructure_column_str}
-                    cidp_values,cidp_df=helper.get_data_from_core(config.solr_unstructure_data,cidp_query,params)        
-                    for item in req_body.get("CAS_Level"):
-                        real_spec_list=item.get("real_Spec_Id")
-
-                        for real in real_spec_list:
-                            if spec_query in real:
-                                std_flag=''
-                                hundrd_flag=''
-                                inci_flag=''
-                                json_make={} 
-                                for std in std_values:
-                                    if (std.get("CSUBI").strip()==item.get("pure_Spec_Id")):
-                                        std_flag='s'
-                                        json_make["std_Componant_Type"]=std.get("COMPT","-")
-                                        json_make["std_value"]=helper.set_decimal_points(std.get("CVALU",0))
-                                        json_make["std_unit"]=std.get("CUNIT","-")
-                                        json_make["std_cal_value"]=helper.calculate_ppm_ppb(std.get("CVALU",0),std.get("CUNIT","-"))
-                                for hundrd in hund_values:
-                                    if hundrd.get("CSUBI").strip()==item.get("pure_Spec_Id"):
-                                        hundrd_flag='s'
-                                        json_make["hundrd_Componant_Type"]=hundrd.get("COMPT","-")
-                                        json_make["hundrd_value"]=helper.set_decimal_points(hundrd.get("CVALU",0))
-                                        json_make["hundrd_unit"]=hundrd.get("CUNIT","-")
-                                        json_make["hundrd_cal_value"]=helper.calculate_ppm_ppb(hundrd.get("CVALU",0),hundrd.get("CUNIT","-"))
-                                for inci in cidp_values:
-                                    data=json.loads(inci.get("DATA_EXTRACT"))
-                                    inci_cas_number=data.get("CAS Number ").strip()
-                                    if inci_cas_number==item.get("cas_Number"):
-                                        inci_flag='s'
-                                        json_make["inci_Componant_Type"]="Active"
-                                        json_make["inci_value_unit"]=data.get("Target Composition","-")
-                                if std_flag =='':
-                                    json_make["std_Componant_Type"]='-'
-                                    json_make["std_value"]=0
-                                    json_make["std_unit"]="-"
-                                    json_make["std_cal_value"]=0
-                                if hundrd_flag=='':
-                                    json_make["hundrd_Componant_Type"]="-"
-                                    json_make["hundrd_value"]=0
-                                    json_make["hundrd_unit"]="-"
-                                    json_make["hundrd_cal_value"]=0
-                                if inci_flag=='':
-                                    json_make["inci_Componant_Type"]="-"
-                                    json_make["inci_value_unit"]="-"
-                                if std_flag=='s' or hundrd_flag=='s' or inci_flag=='s':
-                                    json_make["pure_spec_Id"]=str(item.get("pure_Spec_Id"))
-                                    json_make["cas_Number"]=item.get("cas_Number")
-                                    json_make["ingredient_Name"]=item.get("chemical_Name")
-                                    json_list.append(json_make)
-                                break
-                    if len(json_list)>0:
-                        total_std_value=0
-                        total_hundrd_value=0
-                        total_inci_value=0
-                        for item in json_list:
-                            try:
-                                if float(item.get("std_cal_value")) >0:
-                                    total_std_value+=float(item.get("std_cal_value"))
-                                if float(item.get("hundrd_cal_value")) >0:
-                                    total_hundrd_value+=float(item.get("hundrd_cal_value"))
-                                if item.get("inci_value_unit") !="-":
-                                    inci_list=[incv for incv in str(item.get("inci_value_unit")) if(incv.isdigit() or incv==".")]
-                                    inci_str="".join(inci_list)
-                                    total_inci_value+=float(inci_str)
-                            except Exception as e:
-                                pass
-                        # #sort desceding order
-                        if len(json_list)>0:
-                            std_hund_result = json.dumps(json_list)
-                            std_hund_df=pd.read_json(std_hund_result,dtype=str)
-                            sorted_df=std_hund_df.sort_values(by=['std_cal_value'],ascending=False)  
-                            sorted_dict=json.loads(sorted_df.to_json(orient='index'))
-                            json_list=[]
-                            for item in sorted_dict:
-                                json_list.append(sorted_dict.get(item))
-                        json_make={}
-                        json_make["pure_spec_Id"]="Total"
-                        json_make["cas_Number"]=""
-                        json_make["ingredient_Name"]=""
-                        json_make["std_Componant_Type"]=""
-                        json_make["std_value"]=helper.set_decimal_points(total_std_value)
-                        json_make["std_cal_value"]=""
-                        json_make["std_unit"]=""
-                        json_make["hundrd_Componant_Type"]=""
-                        json_make["hundrd_value"]=helper.set_decimal_points(total_hundrd_value)
-                        json_make["hundrd_cal_value"]=""
-                        json_make["hundrd_unit"]=""
-                        json_make["inci_Componant_Type"]=""
-                        json_make["inci_value_unit"]=helper.set_decimal_points(total_inci_value)
-                        json_list.append(json_make)
-                    return json_list
+                    return std_hund_list
                 elif sub_category=="Legal Composition":
-                    json_list=[]
-                    legal_values,legal_df=helper.get_data_from_core(config.solr_legal_composition,query)        
-                    legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)]
-                    legal_svt_spec=[]
-                    legal_comp={}
-                    total_legal_value=0
-                    for item in req_body.get("CAS_Level"):
-                        real_spec_list=item.get("real_Spec_Id")
-                        for real in real_spec_list:
-                            if spec_query in real:
-                                for data in legal_values:
-                                    json_make={}
-                                    if data.get("CSUBI")==item.get("pure_Spec_Id"):
-                                        legal_svt_spec.append(item.get("pure_Spec_Id"))
-                                        json_make["pure_spec_Id"]=str(item.get("pure_Spec_Id"))
-                                        json_make["cas_Number"]=item.get("cas_Number")
-                                        json_make["ingredient_Name"]=item.get("chemical_Name")
-                                        json_make["legal_Componant_Type"]=data.get("COMPT","-")
-                                        json_make["legal_value"]=helper.set_decimal_points(data.get("CVALU",0))
-                                        json_make["legal_cal_value"]=helper.calculate_ppm_ppb(data.get("CVALU",0),data.get("CUNIT","-"))
-                                        if data.get("CVALU","-") !="-":
-                                            total_legal_value+=float(json_make.get("legal_cal_value",0))
-                                        json_make["legal_unit"]=data.get("CUNIT","-")
-                                        json_list.append(json_make) 
-                                break 
-                    if len(json_list)>0:
-                        # #sort desceding order
-                        legal_result = json.dumps(json_list)
-                        legal_df=pd.read_json(legal_result,dtype=str)
-                        sorted_df=legal_df.sort_values(by=['legal_cal_value'],ascending=False)  
-                        sorted_dict=json.loads(sorted_df.to_json(orient='index'))
-                        json_list=[]
-                        for item in sorted_dict:
-                            json_list.append(sorted_dict.get(item))
-                        json_make={}
-                        json_make["pure_spec_Id"]="Total"
-                        json_make["cas_Number"]=""
-                        json_make["ingredient_Name"]=""
-                        json_make["legal_Componant_Type"]=""
-                        json_make["legal_cal_value"]=""
-                        json_make["legal_value"]=helper.set_decimal_points(total_legal_value)
-                        json_make["legal_unit"]=""
-                        json_list.append(json_make)
-                    legal_comp["legal_composition"]=json_list
-                    if validity=='REACH: REG_REACH':
-                        json_list=[]
-                        json_make={}
-                        svt_result=[]
-                        if len(legal_svt_spec)>0:
-                            subid_list=(config.or_delimiter).join(legal_svt_spec)
-                            query=f'SUBID:({subid_list})'
-                            svt_result,svt_df=helper.get_data_from_core(config.solr_substance_volume_tracking,query)        
-                        presence_id=[]
-                        if "SUBID" in svt_df.columns:
-                            presence_id=list(svt_df["SUBID"].unique())
-                        for sub in presence_id:
-                            json_make["pure_spec_Id"]=sub
-                            svt_total_2018=0
-                            svt_total_2019=0
-                            svt_total_2020=0
-                            for data in svt_result:
-                                if sub==data.get("SUBID","-"):
-                                    reg_value=data.get("REGLT","-")
-                                    reg_year=data.get("QYEAR","-").strip()
-                                    if reg_value=="SVT_TE":
-                                        if reg_year=="2018":
-                                            json_make["SVT_TE_eight"]=helper.set_decimal_points(data.get("CUMQT",0))
-                                        if reg_year=="2019":
-                                            json_make["SVT_TE_nine"]=helper.set_decimal_points(data.get("CUMQT",0))
-                                        if  reg_year=="2020":
-                                            json_make["SVT_TE_twenty"]=helper.set_decimal_points(data.get("CUMQT",0))
-                                        json_make["amount_limit_SVT_TE"]=helper.set_decimal_points(data.get("AMTLT",0))
-                                    if reg_value=="SVT_AN":
-                                        if reg_year=="2018":
-                                            json_make["SVT_AN_eight"]=helper.set_decimal_points(data.get("CUMQT",0))
-                                        if reg_year=="2019":
-                                            json_make["SVT_AN_nine"]=helper.set_decimal_points(data.get("CUMQT",0))
-                                        if  reg_year=="2020":
-                                            json_make["SVT_AN_twenty"]=helper.set_decimal_points(data.get("CUMQT",0))
-                                        json_make["amount_limit_SVT_AN"]=helper.set_decimal_points(data.get("AMTLT",0))
-                                    if reg_value=="SVT_LV":
-                                        if reg_year=="2018":
-                                            svt_total_2018+=float(data.get("CUMQT","-"))
-                                            json_make["SVT_LV_eight"]=helper.set_decimal_points(svt_total_2018)
-                                        if reg_year=="2019":
-                                            svt_total_2019+=float(data.get("CUMQT","-"))
-                                            json_make["SVT_LV_nine"]=helper.set_decimal_points(svt_total_2019)
-                                        if  reg_year=="2020":
-                                            svt_total_2020+=float(data.get("CUMQT","-"))
-                                            json_make["SVT_LV_twenty"]=helper.set_decimal_points(svt_total_2020)
-                                        json_make["amount_limit_SVT_LV"]=helper.set_decimal_points(data.get("AMTLT",0))                   
-                            json_list.append(json_make)
-                            json_make={}
-                        # total_svt_te_amt=0
-                        # total_svt_an_amt=0
-                        # total_svt_lv_amt=0
-                        # for item in json_list:
-                        #     total_svt_te_amt=total_svt_te_amt+float(item.get("amount_limit_SVT_TE",0))
-                        #     total_svt_an_amt=total_svt_an_amt+float(item.get("amount_limit_SVT_AN",0))
-                        #     total_svt_lv_amt=total_svt_lv_amt+float(item.get("amount_limit_SVT_LV",0))
-                        # json_make["pure_spec_Id"]="Total"
-                        # json_make["SVT_TE_eight"]=""
-                        # json_make["SVT_TE_nine"]=""
-                        # json_make["SVT_TE_twenty"]=""
-                        # json_make["amount_limit_SVT_TE"]=helper.set_decimal_points(total_svt_te_amt)
-                        # json_make["SVT_AN_eight"]=""
-                        # json_make["SVT_AN_nine"]=""
-                        # json_make["SVT_AN_twenty"]=""
-                        # json_make["amount_limit_SVT_AN"]=helper.set_decimal_points(total_svt_an_amt)
-                        # json_make["SVT_LV_eight"]=""
-                        # json_make["SVT_LV_nine"]=""
-                        # json_make["SVT_LV_twenty"]=""
-                        # json_make["amount_limit_SVT_LV"]=helper.set_decimal_points(total_svt_lv_amt)
-                        # json_list.append(json_make)
-                        json_make={}
-                        for item in range(len(json_list)):
-                            if json_list[item].get("SVT_TE_eight") is None:
-                                json_list[item]["SVT_TE_eight"]="-"
-                            if json_list[item].get("SVT_TE_nine") is None:
-                                json_list[item]["SVT_TE_nine"]="-"
-                            if json_list[item].get("SVT_TE_twenty") is None:
-                                json_list[item]["SVT_TE_twenty"]="-"
-                            if json_list[item].get("amount_limit_SVT_TE") is None:
-                                json_list[item]["amount_limit_SVT_TE"]="-"
-                            if json_list[item].get("SVT_AN_eight") is None:
-                                json_list[item]["SVT_AN_eight"]="-"
-                            if json_list[item].get("SVT_AN_nine") is None:
-                                json_list[item]["SVT_AN_nine"]="-"
-                            if json_list[item].get("SVT_AN_twenty") is None:
-                                json_list[item]["SVT_AN_twenty"]="-"
-                            if json_list[item].get("amount_limit_SVT_AN") is None:
-                                json_list[item]["amount_limit_SVT_AN"]="-"
-                            if json_list[item].get("SVT_LV_eight") is None:
-                                json_list[item]["SVT_LV_eight"]="-"
-                            if json_list[item].get("SVT_LV_nine") is None:
-                                json_list[item]["SVT_LV_nine"]="-"
-                            if json_list[item].get("SVT_LV_twenty") is None:
-                                json_list[item]["SVT_LV_twenty"]="-"
-                            if json_list[item].get("amount_limit_SVT_LV") is None:
-                                json_list[item]["amount_limit_SVT_LV"]="-"
-                        legal_comp["svt"]=json_list          
-                    return legal_comp      
+                    return legal_list        
+            if validity is not None:
+                if sub_category=="Standard, 100 % & INCI Composition":
+                    std_values=find_std_hundrd_composition_details(validity,cas_query,spec_query,req_body,all_details_json)
+                    return std_values           
+                elif sub_category=="Legal Composition":
+                    legal_values=find_legal_composition_details(validity,cas_query,spec_query,req_body,all_details_json,cas_list)
+                    return legal_values                  
         return product_attributes_result
     except Exception as e:
         return product_attributes_result
-                        
-        
+
+def find_zusage(all_details_json,cas_query,spec_query):   
+    try:                 
+        std_usage=[]
+        hundrd_usage=[]
+        legal_usage=[]
+        usage_catgory=[]
+        if cas_query!='' and spec_query!='':
+            query=f'CSUBI:({cas_query}) && SUBID:({spec_query})'
+            std_hund_list=[]
+            legal_list=[]
+            std_values,std_df=helper.get_data_from_core(config.solr_std_composition,query) 
+            # std_df=std_df[std_df["CSUBI"].isin(cas_list)]       
+            if "ZUSAGE" in list(std_df.columns):
+                std_usage=list(std_df["ZUSAGE"].unique())
+            hund_values,hund_df=helper.get_data_from_core(config.solr_hundrd_composition,query)
+            # hund_df=hund_df[hund_df["CSUBI"].isin(cas_list)]
+            if "ZUSAGE" in list(hund_df.columns):
+                hundrd_usage=list(hund_df["ZUSAGE"].unique())           
+            usage_catgory=std_usage+hundrd_usage
+            edit_std_hund=[]
+            for i in list(set(usage_catgory)):
+                json_make={}
+                json_make["name"]=i
+                std_hund_list.append(json_make) 
+                edit_std_hund.append(i)  
+            legal_values,legal_df=helper.get_data_from_core(config.solr_legal_composition,query)  
+            # legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)] 
+            legal_usage_edit=[]
+            if "ZUSAGE" in list(legal_df.columns):
+                legal_usage=list(legal_df["ZUSAGE"].unique())
+            for i in list(set(legal_usage)):
+                json_make={}
+                json_make["name"]=i
+                if 'PUBLIC: REG_EU' not in i: 
+                    legal_usage_edit.append(i)
+                    legal_list.append(json_make)
+        return std_hund_list,edit_std_hund,legal_list,legal_usage_edit
+    except Exception as e:
+        return [],[]
+    
+def find_std_hundrd_composition_details(validity,cas_query,spec_query,req_body,all_details_json,spec_with_namprod=""):
+    zusage_value=helper.replace_character_for_querying([validity])
+    #finding product details
+    if spec_with_namprod=="":
+        spec_with_namprod=get_specid_namprod_details(spec_query)
+    query=f'CSUBI:({cas_query}) && ZUSAGE:({zusage_value}) && SUBID:({spec_query})'  
+    json_list=[]  
+    # std_result=[]
+    # hundrd_result=[]
+    # inci_result=[]
+    std_values,std_df=helper.get_data_from_core(config.solr_std_composition,query)        
+    hund_values,hund_df=helper.get_data_from_core(config.solr_hundrd_composition,query)
+    cidp_query=helper.unstructure_template(all_details_json,["CIDP"])
+    params={"fl":config.unstructure_column_str}
+    cidp_values,cidp_df=helper.get_data_from_core(config.solr_unstructure_data,cidp_query,params)        
+    for item in req_body.get("CAS_Level"):
+        real_spec_list=item.get("real_Spec_Id")
+        for real in real_spec_list:
+            if spec_query in real:
+                std_flag=''
+                hundrd_flag=''
+                inci_flag=''
+                json_make={} 
+                for std in std_values:
+                    if (std.get("CSUBI").strip()==item.get("pure_Spec_Id")):
+                        std_flag='s'
+                        json_make["std_Componant_Type"]=std.get("COMPT","-")
+                        json_make["std_value"]=helper.set_decimal_points(std.get("CVALU",0))
+                        json_make["std_unit"]=std.get("CUNIT","-")
+                        json_make["std_cal_value"]=helper.calculate_ppm_ppb(std.get("CVALU",0),std.get("CUNIT","-"))
+                for hundrd in hund_values:
+                    if hundrd.get("CSUBI").strip()==item.get("pure_Spec_Id"):
+                        hundrd_flag='s'
+                        json_make["hundrd_Componant_Type"]=hundrd.get("COMPT","-")
+                        json_make["hundrd_value"]=helper.set_decimal_points(hundrd.get("CVALU",0))
+                        json_make["hundrd_unit"]=hundrd.get("CUNIT","-")
+                        json_make["hundrd_cal_value"]=helper.calculate_ppm_ppb(hundrd.get("CVALU",0),hundrd.get("CUNIT","-"))
+                for inci in cidp_values:
+                    data=json.loads(inci.get("DATA_EXTRACT"))
+                    inci_cas_number=data.get("CAS Number ").strip()
+                    if inci_cas_number==item.get("cas_Number"):
+                        inci_flag='s'
+                        json_make["inci_Componant_Type"]="Active"
+                        json_make["inci_value_unit"]=data.get("Target Composition","-")
+                if std_flag =='':
+                    json_make["std_Componant_Type"]='-'
+                    json_make["std_value"]=0
+                    json_make["std_unit"]="-"
+                    json_make["std_cal_value"]=0
+                if hundrd_flag=='':
+                    json_make["hundrd_Componant_Type"]="-"
+                    json_make["hundrd_value"]=0
+                    json_make["hundrd_unit"]="-"
+                    json_make["hundrd_cal_value"]=0
+                if inci_flag=='':
+                    json_make["inci_Componant_Type"]="-"
+                    json_make["inci_value_unit"]="-"
+                if std_flag=='s' or hundrd_flag=='s' or inci_flag=='s':
+                    json_make["real_Spec_Id"]=spec_with_namprod
+                    json_make["pure_spec_Id"]=str(item.get("pure_Spec_Id"))
+                    json_make["cas_Number"]=item.get("cas_Number")
+                    json_make["ingredient_Name"]=item.get("chemical_Name")
+                    json_list.append(json_make)
+                break
+    if len(json_list)>0:
+        total_std_value=0
+        total_hundrd_value=0
+        total_inci_value=0
+        for item in json_list:
+            try:
+                if float(item.get("std_cal_value")) >0:
+                    total_std_value+=float(item.get("std_cal_value"))
+                if float(item.get("hundrd_cal_value")) >0:
+                    total_hundrd_value+=float(item.get("hundrd_cal_value"))
+                if item.get("inci_value_unit") !="-":
+                    inci_list=[incv for incv in str(item.get("inci_value_unit")) if(incv.isdigit() or incv==".")]
+                    inci_str="".join(inci_list)
+                    total_inci_value+=float(inci_str)
+            except Exception as e:
+                pass
+        # #sort desceding order
+        if len(json_list)>0:
+            std_hund_result = json.dumps(json_list)
+            std_hund_df=pd.read_json(std_hund_result,dtype=str)
+            sorted_df=std_hund_df.sort_values(by=['std_cal_value'],ascending=False)  
+            sorted_dict=json.loads(sorted_df.to_json(orient='index'))
+            json_list=[]
+            for item in sorted_dict:
+                json_list.append(sorted_dict.get(item))
+        json_make={}
+        json_make["pure_spec_Id"]="Total"
+        json_make["cas_Number"]=""
+        json_make["ingredient_Name"]=""
+        json_make["std_Componant_Type"]=""
+        json_make["std_value"]=helper.set_decimal_points(total_std_value)
+        json_make["std_cal_value"]=""
+        json_make["std_unit"]=""
+        json_make["hundrd_Componant_Type"]=""
+        json_make["hundrd_value"]=helper.set_decimal_points(total_hundrd_value)
+        json_make["hundrd_cal_value"]=""
+        json_make["hundrd_unit"]=""
+        json_make["inci_Componant_Type"]=""
+        if str(total_inci_value) == '0':
+            inci_total_decimal_value="-"
+        else:
+            inci_total_decimal_value=helper.set_decimal_points(total_inci_value)
+        json_make["inci_value_unit"]=inci_total_decimal_value
+        json_list.append(json_make)
+    return json_list
+
+def find_legal_composition_details(validity,cas_query,spec_query,req_body,all_details_json,cas_list,spec_with_namprod=""):
+    try:
+        if spec_with_namprod=="":
+            spec_with_namprod=get_specid_namprod_details(spec_query)
+        legal_comp={"legal_composition":[],"svt":[]}
+        zusage_value=helper.replace_character_for_querying([validity])
+        query=f'CSUBI:({cas_query}) && ZUSAGE:({zusage_value}) && SUBID:({spec_query})'  
+        json_list=[]  
+        legal_values,legal_df=helper.get_data_from_core(config.solr_legal_composition,query)        
+        legal_df=legal_df[legal_df["CSUBI"].isin(cas_list)]
+        legal_svt_spec=[]
+        legal_comp={}
+        total_legal_value=0
+        for item in req_body.get("CAS_Level"):
+            real_spec_list=item.get("real_Spec_Id")
+            for real in real_spec_list:
+                if spec_query in real:
+                    for data in legal_values:
+                        json_make={}
+                        if data.get("CSUBI")==item.get("pure_Spec_Id"):
+                            legal_svt_spec.append(item.get("pure_Spec_Id"))
+                            json_make["real_Spec_Id"]=spec_with_namprod
+                            json_make["pure_spec_Id"]=str(item.get("pure_Spec_Id"))
+                            json_make["cas_Number"]=item.get("cas_Number")
+                            json_make["ingredient_Name"]=item.get("chemical_Name")
+                            json_make["legal_Componant_Type"]=data.get("COMPT","-")
+                            json_make["legal_value"]=helper.set_decimal_points(data.get("CVALU",0))
+                            json_make["legal_cal_value"]=helper.calculate_ppm_ppb(data.get("CVALU",0),data.get("CUNIT","-"))
+                            if data.get("CVALU","-") !="-":
+                                total_legal_value+=float(json_make.get("legal_cal_value",0))
+                            json_make["legal_unit"]=data.get("CUNIT","-")
+                            json_list.append(json_make) 
+                    break 
+        if len(json_list)>0:
+            # #sort desceding order
+            legal_result = json.dumps(json_list)
+            legal_df=pd.read_json(legal_result,dtype=str)
+            sorted_df=legal_df.sort_values(by=['legal_cal_value'],ascending=False)  
+            sorted_dict=json.loads(sorted_df.to_json(orient='index'))
+            json_list=[]
+            for item in sorted_dict:
+                json_list.append(sorted_dict.get(item))
+            json_make={}
+            json_make["pure_spec_Id"]="Total"
+            json_make["cas_Number"]=""
+            json_make["ingredient_Name"]=""
+            json_make["legal_Componant_Type"]=""
+            json_make["legal_cal_value"]=""
+            json_make["legal_value"]=helper.set_decimal_points(total_legal_value)
+            json_make["legal_unit"]=""
+            json_list.append(json_make)
+        legal_comp["legal_composition"]=json_list
+        if validity=='REACH: REG_REACH':
+            json_list=[]
+            json_make={}
+            svt_result=[]
+            if len(legal_svt_spec)>0:
+                subid_list=(config.or_delimiter).join(legal_svt_spec)
+                query=f'SUBID:({subid_list})'
+                svt_result,svt_df=helper.get_data_from_core(config.solr_substance_volume_tracking,query)        
+            presence_id=[]
+            if "SUBID" in svt_df.columns:
+                presence_id=list(svt_df["SUBID"].unique())
+            for sub in presence_id:
+                json_make["real_Spec_Id"]=spec_with_namprod
+                json_make["pure_spec_Id"]=sub
+                svt_total_2018=0
+                svt_total_2019=0
+                svt_total_2020=0
+                for data in svt_result:
+                    if sub==data.get("SUBID","-"):
+                        reg_value=data.get("REGLT","-")
+                        reg_year=data.get("QYEAR","-").strip()
+                        if reg_value=="SVT_TE":
+                            if reg_year=="2018":
+                                json_make["SVT_TE_eight"]=helper.set_decimal_points(data.get("CUMQT",0))
+                            if reg_year=="2019":
+                                json_make["SVT_TE_nine"]=helper.set_decimal_points(data.get("CUMQT",0))
+                            if  reg_year=="2020":
+                                json_make["SVT_TE_twenty"]=helper.set_decimal_points(data.get("CUMQT",0))
+                            json_make["amount_limit_SVT_TE"]=helper.set_decimal_points(data.get("AMTLT",0))
+                        if reg_value=="SVT_AN":
+                            if reg_year=="2018":
+                                json_make["SVT_AN_eight"]=helper.set_decimal_points(data.get("CUMQT",0))
+                            if reg_year=="2019":
+                                json_make["SVT_AN_nine"]=helper.set_decimal_points(data.get("CUMQT",0))
+                            if  reg_year=="2020":
+                                json_make["SVT_AN_twenty"]=helper.set_decimal_points(data.get("CUMQT",0))
+                            json_make["amount_limit_SVT_AN"]=helper.set_decimal_points(data.get("AMTLT",0))
+                        if reg_value=="SVT_LV":
+                            if reg_year=="2018":
+                                svt_total_2018+=float(data.get("CUMQT","-"))
+                                json_make["SVT_LV_eight"]=helper.set_decimal_points(svt_total_2018)
+                            if reg_year=="2019":
+                                svt_total_2019+=float(data.get("CUMQT","-"))
+                                json_make["SVT_LV_nine"]=helper.set_decimal_points(svt_total_2019)
+                            if  reg_year=="2020":
+                                svt_total_2020+=float(data.get("CUMQT","-"))
+                                json_make["SVT_LV_twenty"]=helper.set_decimal_points(svt_total_2020)
+                            json_make["amount_limit_SVT_LV"]=helper.set_decimal_points(data.get("AMTLT",0))                   
+                json_list.append(json_make)
+                json_make={}
+            json_make={}
+            for item in range(len(json_list)):
+                if json_list[item].get("SVT_TE_eight") is None:
+                    json_list[item]["SVT_TE_eight"]="-"
+                if json_list[item].get("SVT_TE_nine") is None:
+                    json_list[item]["SVT_TE_nine"]="-"
+                if json_list[item].get("SVT_TE_twenty") is None:
+                    json_list[item]["SVT_TE_twenty"]="-"
+                if json_list[item].get("amount_limit_SVT_TE") is None:
+                    json_list[item]["amount_limit_SVT_TE"]="-"
+                if json_list[item].get("SVT_AN_eight") is None:
+                    json_list[item]["SVT_AN_eight"]="-"
+                if json_list[item].get("SVT_AN_nine") is None:
+                    json_list[item]["SVT_AN_nine"]="-"
+                if json_list[item].get("SVT_AN_twenty") is None:
+                    json_list[item]["SVT_AN_twenty"]="-"
+                if json_list[item].get("amount_limit_SVT_AN") is None:
+                    json_list[item]["amount_limit_SVT_AN"]="-"
+                if json_list[item].get("SVT_LV_eight") is None:
+                    json_list[item]["SVT_LV_eight"]="-"
+                if json_list[item].get("SVT_LV_nine") is None:
+                    json_list[item]["SVT_LV_nine"]="-"
+                if json_list[item].get("SVT_LV_twenty") is None:
+                    json_list[item]["SVT_LV_twenty"]="-"
+                if json_list[item].get("amount_limit_SVT_LV") is None:
+                    json_list[item]["amount_limit_SVT_LV"]="-"
+            legal_comp["svt"]=json_list          
+        else:
+            legal_comp["svt"]=[]
+        return legal_comp
+    except Exception as e:
+        return legal_comp
+
+def get_specid_namprod_details(spec_query):
+    try:
+        # edit_spec_query=spec_query.replace("SUBID","TEXT2")
+        namprod_query=f'TYPE:NAMPROD && TEXT2:({spec_query}) && SUBCT:REAL_SUB && -TEXT6:X'
+        nam_values,nam_df=helper.get_data_from_core(config.solr_product,namprod_query) 
+        if "TEXT1" in nam_df.columns and "TEXT2" in nam_df.columns:
+            spec_id=list(nam_df["TEXT2"].unique())[0]
+            namprod=list(nam_df["TEXT1"].unique())
+            namprod_str=(config.comma_delimiter).join(namprod)
+            spec_str=f'{spec_id}{config.hypen_delimiter}{namprod_str}'
+        return spec_str
+    except Exception as e:
+        pass

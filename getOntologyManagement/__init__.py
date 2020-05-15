@@ -36,6 +36,8 @@ def get_ontology_details():
             ontology_json["created_Date"]=item.get("CREATED_DATE","-")
             ontology_json["updated_Date"]=item.get("UPDATED_DATE","-")
             ontology_json["synonyms"]=item.get("ONTOLOGY_VALUE","-")
+            ontology_json["id"]=item.get("ID","-")
+            ontology_json["solr_Id"]=item.get("solr_id","-")
             ontology_list.append(ontology_json)     
         result=[{"ontology_Details":ontology_list,"product_Details":nam_bdt_details}]
         return result

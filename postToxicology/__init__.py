@@ -71,6 +71,7 @@ def get_toxicology_details(req_body):
                             json_make["studies"]=datastr.get("Studies",config.hypen_delimiter)
                             json_make["status"]=datastr.get("Status",config.hypen_delimiter)
                             json_make["comments"]=datastr.get("Comments",config.hypen_delimiter)
+                            json_make["date"]=datastr.get("date",config.hypen_delimiter)
                             silanes.append(json_make)                  
                         elif sub_category=="Monthly Toxicology Study List" and category=="tox_study_selant":
                             json_make["test"]=datastr.get("Test",config.hypen_delimiter)
@@ -87,6 +88,10 @@ def get_toxicology_details(req_body):
                         pass
             if sub_category=="Monthly Toxicology Study List":
                 monthly_studies={}
+                if len(selant)>0:
+                    selant=sort_date(selant)
+                if len(silanes):
+                    silanes=sort_date(silanes)  
                 monthly_studies["selant"]=selant
                 monthly_studies["silanes"]=silanes
                 json_list.append(monthly_studies)                    
@@ -109,6 +114,22 @@ def get_toxicology_details(req_body):
                         json_list.append(json_make)
                     except Exception as e:
                         pass   
+        return json_list
+    except Exception as e:
+        return []
+
+def sort_date(values):
+    try:
+        if len(values)>0:
+            # #sort desceding order
+            result = json.dumps(values)
+            df=pd.read_json(result,dtype=str)
+            df['Date'] =pd.to_datetime(df['date'])
+            sorted_df=df.sort_values(by=['Date'],ascending=False)  
+            sorted_dict=json.loads(sorted_df.to_json(orient='index'))
+            json_list=[]
+            for item in sorted_dict:
+                json_list.append(sorted_dict.get(item))
         return json_list
     except Exception as e:
         return []

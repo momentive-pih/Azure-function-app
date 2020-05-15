@@ -43,6 +43,14 @@ def all_products(data):
             search_value = search_split[1].strip()                                                        
         all_product_list=[]
         if key_flag=='s':
+            #ONTOLOGY search
+            if search_key.upper()=="ONT*":
+                search_ont_value,search_ont_key=helper.find_ontology_value(search_value)
+                if search_ont_value !='' and search_ont_key!='':
+                    search_value=search_ont_value
+                    if "NAM" in search_ont_key:
+                        search_ont_key='NAM'
+                    search_key=f'{search_ont_key}*'
             for key,category,base1,base2,level,combination_category,check_column,check_fields in category_with_key:
                 if key==search_key.upper():
                     key_found='s'                                                  
