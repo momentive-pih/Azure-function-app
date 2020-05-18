@@ -423,6 +423,22 @@ def find_ontology_value(search_value):
             return "",""
     except Exception as e:
         return "",""
+
+def update_in_change_audit_log(row_id,entity_name,user,action,date):
+    try:
+        # current_date=datetime.now()
+        conn=SQL_connection()
+        cursor=conn.cursor()
+        inser_value=f"'{row_id}','{entity_name}','{user}','{action}','{date}'" 
+        insert_query=f"insert into [momentive].[change_audit_log] values ({inser_value})"
+        cursor.execute(insert_query)
+    except Exception as e:
+        conn.rollback()
+        return "Cannot be updated due to some issue"
+    else:
+        conn.commit()
+        return "updated in change audit log successfully"
+        
 # def main(req: func.HttpRequest) -> func.HttpResponse:
 #     logging.info('Python HTTP trigger function processed a request.')
 

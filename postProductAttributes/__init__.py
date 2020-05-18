@@ -325,7 +325,7 @@ def get_product_attributes(req_body):
                     else:
                         product_identify=config.hypen_delimiter
                     json_make["product_Identification"]=product_identify
-                    # json_make["product_Identification"]=(config.comma_delimiter).join(all_details_json.get(item).get("namprod",[]))   
+                    namprod_str=(config.comma_delimiter).join(all_details_json.get(item).get("namprod",[]))   
                     idtxt_df=result_df[(result_df["IDCAT"]=="NAM") & (result_df["IDTYP"]=="PROD_RLBL") & (result_df["LANGU"].isin(["E","","-"])) & (result_df["SUBID"]==item)]
                     idtxt=list(idtxt_df["IDTXT"].unique())
                     if len(idtxt)>0:
@@ -359,7 +359,7 @@ def get_product_attributes(req_body):
             json_make["INCI_name"]=(config.comma_delimiter).join(display_inci_name)
             json_list.append(json_make)
             #finding material level
-            spec_with_namprod=f"{spec_list[0]} - {product_identify}"
+            spec_with_namprod=f"{spec_list[0]} - {namprod_str}"
             materials=[]            
             active_material=[]
             all_material=[]
@@ -483,7 +483,7 @@ def find_std_hundrd_composition_details(validity,cas_query,spec_query,req_body,a
     zusage_value=helper.replace_character_for_querying([validity])
     #finding product details
     if spec_with_namprod=="":
-        spec_with_namprod=get_specid_namprod_details(spec_query)
+        spec_with_namprod=get_specid_namprod_details(all_details_json)
     query=f'CSUBI:({cas_query}) && ZUSAGE:({zusage_value}) && SUBID:({spec_query})'  
     json_list=[]  
     # std_result=[]
@@ -592,7 +592,7 @@ def find_std_hundrd_composition_details(validity,cas_query,spec_query,req_body,a
 def find_legal_composition_details(validity,cas_query,spec_query,req_body,all_details_json,cas_list,spec_with_namprod=""):
     try:
         if spec_with_namprod=="":
-            spec_with_namprod=get_specid_namprod_details(spec_query)
+            spec_with_namprod=get_specid_namprod_details(all_details_json)
         legal_comp={"legal_composition":[],"svt":[]}
         zusage_value=helper.replace_character_for_querying([validity])
         query=f'CSUBI:({cas_query}) && ZUSAGE:({zusage_value}) && SUBID:({spec_query})'  
@@ -724,16 +724,21 @@ def find_legal_composition_details(validity,cas_query,spec_query,req_body,all_de
     except Exception as e:
         return legal_comp
 
-def get_specid_namprod_details(spec_query):
+def get_specid_namprod_details(all_details_json):
     try:
+        spec_str=''
+        for spec_id in all_details_json:
+            namprod_str=(config.comma_delimiter).join(all_details_json.get(spec_id).get("namprod",[]))   
+            spec_str= f'{spec_id}{config.hypen_delimiter}{namprod_str}' 
+            break   
         # edit_spec_query=spec_query.replace("SUBID","TEXT2")
-        namprod_query=f'TYPE:NAMPROD && TEXT2:({spec_query}) && SUBCT:REAL_SUB && -TEXT6:X'
-        nam_values,nam_df=helper.get_data_from_core(config.solr_product,namprod_query) 
-        if "TEXT1" in nam_df.columns and "TEXT2" in nam_df.columns:
-            spec_id=list(nam_df["TEXT2"].unique())[0]
-            namprod=list(nam_df["TEXT1"].unique())
-            namprod_str=(config.comma_delimiter).join(namprod)
-            spec_str=f'{spec_id}{config.hypen_delimiter}{namprod_str}'
+        # namprod_query=f'TYPE:NAMPROD && TEXT2:({spec_query}) && SUBCT:REAL_SUB && -TEXT6:X'
+        # nam_values,nam_df=helper.get_data_from_core(config.solr_product,namprod_query) 
+        # if "TEXT1" in nam_df.columns and "TEXT2" in nam_df.columns:
+        #     spec_id=list(nam_df["TEXT2"].unique())[0]
+        #     namprod=list(nam_df["TEXT1"].unique())
+        #     namprod_str=(config.comma_delimiter).join(namprod)
+        #     spec_str=f'{spec_id}{config.hypen_delimiter}{namprod_str}'
         return spec_str
     except Exception as e:
-        pass
+        return spec_str

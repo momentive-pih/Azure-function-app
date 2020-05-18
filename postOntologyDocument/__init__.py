@@ -73,10 +73,15 @@ def get_assigned_ontology_document(req_body):
                         json_make["file_source"]=file_source
                         json_make["category"]=unstructure_category
                         json_make["spec_Id"]=spec_id
+                        if sub_category=="unassigned":
+                            product="No-key-value"
                         json_make["productName"]=product
                         json_make["product_Key"]=product_type
                         json_make["id"]=count
                         json_make["createdDate"]=date
+                        json_make["data_extract"]=datastr
+                        json_make["sql_Id"]=item.get("ID",'0')
+                        json_make["solr_Id"]=item.get("solr_id",config.hypen_delimiter)
                         json_make["url"]=(config.blob_file_path)+path.replace("/dbfs/mnt/","")+(config.sas_token)
                         extract_field={}
                         extract_field["ontologyKey"]=product

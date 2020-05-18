@@ -53,6 +53,7 @@ def add_ontology_value(add_data):
                 ontolgy_df["ID"]= ontolgy_df["ID"].apply(pd.to_numeric)
                 list_of_id=list(ontolgy_df["ID"].unique())
             sql_id=max(list_of_id)
+            found_id=str(sql_id+1)
             doc={"ONTOLOGY_KEY":add_data.get("synonymsProductName",""),
             "ID":str(sql_id+1), 
             "KEY_TYPE":add_data.get("synonymsProductType",""),
@@ -61,7 +62,11 @@ def add_ontology_value(add_data):
             "CREATED_DATE":str(current_date)[:-3],
             "UPDATED_DATE":str(current_date)[:-3],
             "PROCESSED_FLAG":""}
-            config.solr_ontology.add([doc])
+            #update in change_audit_log table
+            audit_status=helper.update_in_change_audit_log(found_id,"Ontology Management",add_data.get('synonymsCreatedBy',''),"insert",str(current_date)[:-3])
+            if audit_status=="updated in change audit log successfully":
+                config.solr_ontology.add([doc])
+            
         except Exception as e:
             return "Will be added shortly"
     return "Added sucessfully"
@@ -76,12 +81,15 @@ def edit_ontology_value(update_data):
         update_value=f"ONTOLOGY_KEY = '{update_data.get('synonymsProductName','')}',KEY_TYPE='{update_data.get('synonymsProductType','')}',ONTOLOGY_VALUE='{update_data.get('ontologySynonyms','')}',UPDATED_DATE='{str(current_date)[:-3]}'"
         update_query=f"update [momentive].[ontology] set {update_value} where id='{update_data.get('ontology_Id','-')}'"
         cursor.execute(update_query)
-        conn.commit()
         # return "added"
     except Exception as e:
-        return "Cannot be updated"
+        conn.rollback()
+        return "Cannot be updated due to some issue"
     else:
         try:
+            conn.commit()
+            #update in change_audit_log table
+            audit_status=helper.update_in_change_audit_log(update_data.get('ontology_Id','-'),"Ontology Management","PIH-admin","update",str(current_date)[:-3])
             doc={
             "solr_id":update_data.get("solr_Id","-"),
             "ONTOLOGY_KEY":update_data.get("synonymsProductName",""),
@@ -89,7 +97,9 @@ def edit_ontology_value(update_data):
             "ONTOLOGY_VALUE":update_data.get("ontologySynonyms",""),
             "UPDATED_DATE":(str(current_date)[:-3])
             }
-            config.solr_ontology.add([doc],fieldUpdates={"ONTOLOGY_KEY":"set","KEY_TYPE":"set","ONTOLOGY_VALUE":"set","UPDATED_DATE":"set"})
+            if audit_status=="updated in change audit log successfully":
+                config.solr_ontology.add([doc],fieldUpdates={"ONTOLOGY_KEY":"set","KEY_TYPE":"set","ONTOLOGY_VALUE":"set","UPDATED_DATE":"set"})
+            
         except Exception as e:
             return "Will be updated shortly"
     return "Updated sucessfully"

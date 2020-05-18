@@ -138,5 +138,14 @@
                                 "requestOverrides": {
                                     "backend.request.headers.Accept": "application/xml",
                                     "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
-                                }}
+                                }},"proxy15": {
+                                    "matchCondition": {
+                                        "methods": [ "POST" ],
+                                        "route": "/api/postUpdateOntologyDocuments"
+                                    },
+                                    "backendUri": "https://localhost/api/postUpdateOntologyDocuments",
+                                    "requestOverrides": {
+                                        "backend.request.headers.Accept": "application/xml",
+                                        "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
+                                    }}
 }}
