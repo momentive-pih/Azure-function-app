@@ -438,7 +438,43 @@ def update_in_change_audit_log(row_id,entity_name,user,action,date):
     else:
         conn.commit()
         return "updated in change audit log successfully"
-        
+
+def log_sort_date(df,column_name):
+    try:
+        df['Date'] =pd.to_datetime(df[column_name])
+        sorted_df=df.sort_values(by=['Date'],ascending=False)  
+        sorted_dict=json.loads(sorted_df.to_json(orient='index'))
+        json_list=[]
+        for item in sorted_dict:
+            json_list.append(sorted_dict.get(item))
+        return json_list
+    except Exception as e:
+        return []
+
+def make_log_details(id_key,created_by,created_date):
+    try:
+        json_list=[]
+        conn=SQL_connection()
+        # cursor=conn.cursor()
+        query=config.log_detail_query.format(str(id_key))
+        change_audit_log_df = pd.read_sql(query,conn)
+        if len(change_audit_log_df)>0:
+            change_audit_log_df["updated_date"]=change_audit_log_df["updated_date"].astype(str)
+            items=log_sort_date(change_audit_log_df,"updated_date")
+            for data in items:
+                json_make={}
+                # json_make["created_By"]=created_by
+                # json_make["created_Date"]=created_date
+                json_make["updated_By"]=data.get("user_name")
+                json_make["updated_Date"]=data.get("updated_date")
+                json_list.append(json_make)  
+        json_make={}
+        json_make["updated_By"]=created_by
+        json_make["updated_Date"]=created_date
+        json_list.append(json_make)
+    except Exception as e:
+        pass
+    return json_list
 # def main(req: func.HttpRequest) -> func.HttpResponse:
 #     logging.info('Python HTTP trigger function processed a request.')
 

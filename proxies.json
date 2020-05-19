@@ -147,5 +147,25 @@
                                     "requestOverrides": {
                                         "backend.request.headers.Accept": "application/xml",
                                         "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
-                                    }}
+                                    }},
+                                    "proxy16": {
+                                        "matchCondition": {
+                                            "methods": [ "POST" ],
+                                            "route": "/api/postOntologyManagementLogDetails"
+                                        },
+                                        "backendUri": "https://localhost/api/postOntologyManagementLogDetails",
+                                        "requestOverrides": {
+                                            "backend.request.headers.Accept": "application/xml",
+                                            "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
+                                        }},
+                                    "proxy17": {
+                                        "matchCondition": {
+                                            "methods": [ "POST" ],
+                                            "route": "/api/postOntologyDocumentLogDetails"
+                                        },
+                                        "backendUri": "https://localhost/api/postOntologyDocumentLogDetails",
+                                        "requestOverrides": {
+                                            "backend.request.headers.Accept": "application/xml",
+                                            "backend.request.headers.x-functions-key": "YyZEOHJPjbGWOIxCiZPQ6aJABHI64LQ68aIgPEAU/rWRWfyPHyqU3A=="
+                                        }}
 }}

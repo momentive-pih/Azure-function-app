@@ -5,7 +5,7 @@ sql_url_config=os.environ["CUSTOMCONNSTR_SQLCONNECTIONSTRING"]
 #Solar url connection and access
 solr_product= pysolr.Solr(solr_url_config+"/product_information/", timeout=10,verify=False)
 solr_notification_status=pysolr.Solr(solr_url_config+'/sap_notification_status/', timeout=10,verify=False)
-solr_unstructure_data=pysolr.Solr(solr_url_config+'/unstructure_processed_data/', timeout=10,verify=False)
+solr_unstructure_data=pysolr.Solr(solr_url_config+'/unstructure_processed_data/',always_commit=True, timeout=10,verify=False)
 solr_document_variant=pysolr.Solr(solr_url_config+'/sap_document_variant/', timeout=10,verify=False)
 solr_ghs_labeling_list_data=pysolr.Solr(solr_url_config+'/sap_ghs_labeling_list_data/', timeout=10,verify=False)
 solr_ontology=pysolr.Solr(solr_url_config+'/ontology/',always_commit=True,timeout=10,verify=False)
@@ -190,3 +190,4 @@ in_compliance_notification_status=["on or in compliance with the inventory",
 "y (positive listing)",
 "y"]
 not_in_compliance_notification_status=["not in compliance with the inventory.","at least one component is not listed.","n (negative listing)"]
+log_detail_query="select * from [momentive].[change_audit_log] where row_id={}"
