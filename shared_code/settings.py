@@ -97,7 +97,7 @@ ontology_assigned_template={
             },"EU-FDA":{
                 "EU-FDA":[],"category":"EU-FDA"
             },"Toxicology-summary":{
-                "Toxicology-summary":[],"category":"Toxicology-summary"
+                "Toxicology-summary":[],"category":"Toxicology Summary"
             },"CIDP":{
                 "CIDP":[],"category":"CIDP"
             },"Toxicology":{
@@ -132,54 +132,54 @@ home_icon_restricted_substance=blob_file_path+f"momentive-sources-pih/home-page-
 home_icon_sales_info=blob_file_path+f"momentive-sources-pih/home-page-icon-images-pih/salesInformation.jpg"+sas_token
 home_icon_toxicology=blob_file_path+f"momentive-sources-pih/home-page-icon-images-pih/toxicology.jpg"+sas_token
 report_data_region_code={
-"MSDS DE":"Germany",	
-"MSDS BE":"Belgium",	
-"MSDS NL":"Netherlands",	
-"MSDS GB":"Great Britain",	
-"MSDS F":"France",	
-"MSDS I":"Italy",
-"MSDS ESP":"Spain",
-"MSDS PT":"Portugal",
-"MSDS GR":"Greece",
-"MSDS CH":"Switzerland",
-"MSDS AT":"Austria",
-"MSDS PL":"Poland",
-"MSDS CZ":"Czech Republic",	
-"MSDS SLO":"Slovenia",	
-"MSDS WRUS":"Belarussia",	
-"MSDS RUS":"Russian Fed.",	
-"MSDS RO":"Romania",	
-"MSDS IRL":"Ireland",	
-"MSDS DK":"Denmark",	
-"MSDS SWED":"Sweden",	
-"MSDS FIN":"Finland",	
-"MSDS NORW":"Norway",	
-"MSDS EST":"Estonia",	
-"MSDS HUN":"Hungary",	
-"MSDS SLOV":"Slovakia",	
-"MSDS MONAC":"Monaco",	
-"MSDS LICHT":"Liechtenstein",	
-"MSDS LUX":"Luxembourg",	
-"MSDS TURQ":"Turkey",	
-"MSDS BG":"Bulgaria",	
-"MSDS US":"USA",	
-"MSDS JP":"Japan",	
-"MSDS TH":"Thailand",	
-"MSDS CA":"Canada",	
-"MSDS LET":"Latvia",	
-"MSDS LIT":"Lithuania",	
-"MSDS KR":"Korea (South)",	
-"MSDS SG":"Singapore",	
-"MSDS CN":"China",	
-"MSDS BR":"Brazil",	
-"MSDS AU":"Australia",	
-"MSDS TW":"Taiwan",	
-"MSDS MY":"Malaysia",	
-"MSDS AE":"Utd.Arab Emir.",	
-"MSDS ID":"Indonesia",	
-"MSDS NZ":"New Zealand",	
-"MSDS VN":"Vietnam",	
-"MSDS MX":"Mexico",
+"MSDS DE":["Germany","EU01"],	
+"MSDS BE":["Belgium","EU01"],	
+"MSDS NL":["Netherlands","EU01"],	
+"MSDS GB":["Great Britain","EU01"],	
+"MSDS F":["France","EU01"],	
+"MSDS I":["Italy","EU01"],
+"MSDS ESP":["Spain","EU01"],
+"MSDS PT":["Portugal","EU01"],
+"MSDS GR":["Greece","EU01"],
+"MSDS CH":["Switzerland","EU01"],
+"MSDS AT":["Austria","EU01"],
+"MSDS PL":["Poland","EU01"],
+"MSDS CZ":["Czech Republic","EU01"],	
+"MSDS SLO":["Slovenia","EU01"],	
+"MSDS WRUS":["Belarussia","EU01"],	
+"MSDS RUS":["Russian Fed.","EU01"],	
+"MSDS RO":["Romania","EU01"],	
+"MSDS IRL":["Ireland","EU01"],	
+"MSDS DK":["Denmark","EU01"],	
+"MSDS SWED":["Sweden","EU01"],	
+"MSDS FIN":["Finland","EU01"],	
+"MSDS NORW":["Norway","EU01"],	
+"MSDS EST":["Estonia","EU01"],	
+"MSDS HUN":["Hungary","EU01"],	
+"MSDS SLOV":["Slovakia","EU01"],	
+"MSDS MONAC":["Monaco","EU01"],	
+"MSDS LICHT":["Liechtenstein","EU01"],	
+"MSDS LUX":["Luxembourg","EU01"],	
+"MSDS TURQ":["Turkey","EU01"],	
+"MSDS BG":["Bulgaria","EU01"],	
+"MSDS US":["USA","AM01"],	
+"MSDS JP":["Japan","JP01"],	
+"MSDS TH":["Thailand","TH01"],	
+"MSDS CA":["Canada","CA01"],	
+"MSDS LET":["Latvia","EU01"],	
+"MSDS LIT":["Lithuania","EU01"],	
+"MSDS KR":["Korea (South)","KR01"],	
+"MSDS SG":["Singapore","SG01"],	
+"MSDS CN":["China","NG01"],	
+"MSDS BR":["Brazil","AM05"],	
+"MSDS AU":["Australia","AM01"],	
+"MSDS TW":["Taiwan","HK01"],	
+"MSDS MY":["Malaysia","TH01"],	
+"MSDS AE":["Unit.Arab Emir.","EU06"],	
+"MSDS ID":["Indonesia","AM01"],	
+"MSDS NZ":["New Zealand","AM01"],	
+"MSDS VN":["Viet Nam","AM01"],	
+"MSDS MX":["Mexico","AM04"]
 }
 in_compliance_notification_status=["on or in compliance with the inventory",
 "please contact your supplier for further information on the inventory status of this material.",
@@ -190,4 +190,58 @@ in_compliance_notification_status=["on or in compliance with the inventory",
 "y (positive listing)",
 "y"]
 not_in_compliance_notification_status=["not in compliance with the inventory.","at least one component is not listed.","n (negative listing)"]
-log_detail_query="select * from [momentive].[change_audit_log] where row_id={}"
+log_detail_query="select * from [momentive].[change_audit_log] where action in ('update','insert') and row_id={}"
+tonnage_band_mapping={
+    "< 100 Kg":"1-10 MT",
+    "1-10 MT":"1-10 MT",
+    "< 10 MT":"1-10 MT",
+    "> 10 MT":"10-100 MT",
+    "10-100MT":"10-100 MT",
+    "100-1000MT":"100-1000 MT",
+    ">1000 MT":">1000 MT",
+    "0.1-1MT":"1-10 MT",
+    ">100 MT":"100-1000 MT"
+}
+registration_tracker_query="""declare @tonnagBand as varchar(50)
+declare @productName as varchar(50)
+set @tonnagBand='{}'
+set @productName='{}'
+SELECT D.CountryName, TB.TonnageBand, C.TestMethod,c.TestName, ST.StudyType          
+            , CASE WHEN PD.TestName is not null then 'YES' else 'NO' end as Completed
+            , CASE WHEN PD.TestName is not null then 0 ELSE RM.EstimatedCost END AS EstimatedCost
+            , CASE WHEN PD.TestName is not null then 0 ELSE Rm.EstimatedTiming END AS EstimatedTiming
+            , CASE WHEN PD.TestName is not null then PD.ProductName ELSE '' END AS Product
+            FROM momentive.[RegistrationMaster] RM
+            INNER JOIN  (SELECT TestMethodID,C.TestMethod,A.TonnageBandID from momentive.[RegistrationMaster] A
+inner join momentive.Country B On A.CountryID = B.Id
+INNER JOIN  momentive.TESTMETHOD C On A.TestMethodID = C.Id
+WHERE (@tonnagBand ='ALL' or TonnageBandID  in(select Id
+                                          from momentive.TonnageBand
+                                          where [Order] <= (select distinct [Order]
+                                                                        from momentive.TonnageBand
+                                                                        where TonnageBandBucket = @tonnagBand
+                                                              )
+                                    )) ) B On RM.TestMethodID = B.TestMethodID
+            INNER JOIN  momentive.TESTMETHOD C On RM.TestMethodID = C.Id
+            INNER JOIN  momentive.Country D On RM.CountryID = D.Id
+            INNER JOIN momentive.TonnageBand TB ON RM.TonnageBandID = TB.Id AND TB.Id = B.TonnageBandID
+            INNER JOIN momentive.StudyType ST ON RM.StudyTypeID = ST.Id
+            left outer join ( SELECT DISTINCT ProductName, TestName from  momentive.ProductDetails B where B.ProductName = @productName ) PD
+on B.TestMethod = PD.TestName
+WHERE (@tonnagBand ='ALL' or RM.TonnageBandID  in(select Id
+                                                      from momentive.TonnageBand
+                                                      where [Order] <= (select distinct [Order]
+                                                                                    from momentive.TonnageBand
+                                                                                    where TonnageBandBucket = @tonnagBand
+                                                                          )
+                                                ))
+ORDER BY Completed DESC , ST.StudyType DESC
+"""
+view_connector="dbo"
+table_connector="momentive"
+group_test_view_name="Parallel_Test_Details"
+tracker_product_table="ProductDetails"
+country_table="Country"
+tonnage_band_table="TonnageBand"
+generic_cas_table="Generics_CALPROP"
+select_query="select * from {}.{}"

@@ -6,6 +6,9 @@ import pandas as pd
 # from postAllProducts import views
 import os 
 from __app__.postselectedProducts import views
+from __app__.postToxicology import __init__ as toxicology_function
+from __app__.postRestrictedSubstance import __init__ as substance_function
+# from __app__.postRestrictedSubstance import __init__
 from __app__.shared_code import settings as config
 from __app__.shared_code import helper
 
@@ -29,7 +32,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 home_page_data=home_page_details(all_details_json,spec_list,req_body_content)
                 result = json.dumps(home_page_data)   
     except Exception as e:
-        logging.error(str(e))
+        result = json.dumps(result) 
+        logging.info(f'error in home page function{e}')
     return func.HttpResponse(result,mimetype="application/json")
 
 def rearrange_json(basic_details):
@@ -59,6 +63,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         home_page_query=helper.unstructure_template(all_details_json,category)
         params={"fl":config.unstructure_column_str}
         unstructure_values,unstructure_df=helper.get_data_from_core(config.solr_unstructure_data,home_page_query,params)
+        std,std_df,legal,legal_df=helper.make_common_query_for_std_legal_composition(all_details_json)
         if "CATEGORY" in list(unstructure_df.columns):
             founded_category=list(unstructure_df["CATEGORY"].unique())
         else:
@@ -71,12 +76,14 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
             for matid in arranged_level_json.get("Mat_Level"):
                 try:
                     mat_spec_id=matid.get("real_Spec_Id")
+                    mat_number=(matid.get("material_Number",config.hypen_delimiter)).lstrip("0")
                     if type(mat_spec_id)==str and (item in mat_spec_id):
-                        mat_str_list.append(matid.get("bdt",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("material_Number",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("description",config.hypen_delimiter))
+                        # matid.get("material_Number",config.hypen_delimiter)
+                        mat_str_list.append(matid.get("bdt",config.hypen_delimiter)+(config.pipe_delimitter)+mat_number+(config.pipe_delimitter)+matid.get("description",config.hypen_delimiter))
                     elif type(mat_spec_id)==list:
                         for inside_mat in mat_spec_id:
                             if item in inside_mat:
-                                mat_str_list.append(matid.get("bdt",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("material_Number",config.hypen_delimiter)+(config.pipe_delimitter)+matid.get("description",config.hypen_delimiter))
+                                mat_str_list.append(matid.get("bdt",config.hypen_delimiter)+(config.pipe_delimitter)+mat_number+(config.pipe_delimitter)+matid.get("description",config.hypen_delimiter))
                                 break
                 except Exception as e:
                     pass
@@ -182,8 +189,38 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         #toxicology
         summary_flag="No"
         study_title=[]
-        if "Toxicology-summary" in founded_category:
-            summary_flag="Yes"
+        if "Toxicology-summary" in founded_category: 
+            std_flag=''
+            summary_df=unstructure_df[unstructure_df["CATEGORY"]=="Toxicology-summary"]
+            product_type_list=list(summary_df["PRODUCT_TYPE"].unique())
+            # if len(product_type_list)>1:
+            #     summary_flag="Yes"
+            if (len(product_type_list)==1) and ("NUMCAS" in product_type_list):
+                # for item in unstructure_values:
+                for index, row in summary_df.iterrows():
+                    result_spec=row["SPEC_ID"]
+                    spec_id=helper.finding_spec_details(spec_list,result_spec)
+                    product_type=row["PRODUCT_TYPE"]
+                    toxic_category=row["CATEGORY"]
+                    product=item.get("PRODUCT",config.hypen_delimiter)
+                    if product_type in ["NUMCAS"] and toxic_category=="Toxicology-summary":
+                        specid_list=spec_id.split(config.pipe_delimitter)
+                        if "CAS" in list(std_df.columns) and "SUBID" in list(std_df.columns):
+                            std_find=std_df[(std_df["CAS"]==product) & (std_df["SUBID"].isin(specid_list))]
+                        if len(std_find)==0:
+                            continue
+                        else:
+                            if len(std_find)>0 and "CVALU" in list(std_find.columns):
+                                std_cvalue=std_find[["CVALU","CUNIT"]]
+                                std_cvalu_list=std_cvalue.values.tolist()
+                                for value,unit in std_cvalu_list:
+                                    cal_value=helper.calculate_ppm_ppb(value,unit)
+                                    if cal_value>30:
+                                        std_flag="Yes"
+                                        summary_flag="yes"
+                                        break
+                                if std_flag=='Yes':
+                                    break        
         for item in unstructure_values:
             try:
                 if item.get("CATEGORY")=="Toxicology":
@@ -205,19 +242,12 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         # toxicology.append({"Pending Monthly Tox Studies": ""})
         toxicology.append({ "tab_modal": "toxicologyModal"})
         home_page_details["Toxicology"]=toxicology
+        
         #restricted_sub
         gadsl_fg='No'
         cal_fg="No"
-        for rest in config.restricted_sub_list:
-            try:
-                if (rest in founded_category) and rest=="GADSL":
-                    gadsl_fg="Yes"
-                if (rest in founded_category) and rest=="CAL-PROP":
-                    cal_fg="Yes"
-                if gadsl_fg=="Yes" and cal_fg=="Yes":
-                    break
-            except Exception as e:
-                pass
+        if ("GADSL" in founded_category) or ("CAL-PROP" in founded_category):
+            gadsl_fg,cal_fg=find_restricted_data(unstructure_df,all_details_json,spec_list)
         restricted_sub.append({"image": config.home_icon_restricted_substance})
         restricted_sub.append({"Components Present in GADSL": gadsl_fg})
         restricted_sub.append({"Components Present in Cal Prop 65":cal_fg})
@@ -250,7 +280,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         sales_kg=helper.set_decimal_points(sales_kg)
         sales_kg=str(sales_kg)
         sales_information.append({"image":config.home_icon_sales_info})       
-        sales_information.append({"Total sales in 2019(Kg)" :sales_kg})
+        sales_information.append({"Total sales volume in 2019 (in Kg)" :sales_kg})
         sales_information.append({"Regions where sold" :sold_country})
         sales_information.append({"tab_modal": "salesModal"})
         home_page_details["Sales Information"]=sales_information
@@ -273,6 +303,46 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         logging.error(str(e))
     return home_page_details
 
-
-
-    
+def find_restricted_data(unstructure_df,all_details_json,spec_list):
+    try:
+        std,std_df,legal,legal_df=helper.make_common_query_for_std_legal_composition(all_details_json)
+        gadsl_flag="No"
+        cal_prop_flag="No"
+        restricted_df=unstructure_df[unstructure_df["CATEGORY"].isin(["CAL-PROP","GADSL"])]
+        for index, row in restricted_df.iterrows():
+            category=row["CATEGORY"]
+            if category=="GADSL" and gadsl_flag == 'No': 
+                cas=row["PRODUCT"]
+                result_spec=row["SPEC_ID"]
+                spec_id=helper.finding_spec_details(spec_list,result_spec)
+                product_type=row["PRODUCT_TYPE"]
+                std_wg,componant_type=helper.find_std_weight(cas,product_type,spec_id,std_df)
+                if std_wg != '':
+                    gadsl_flag="Yes"
+                    if gadsl_flag=="Yes" and cal_prop_flag=="Yes":
+                        break
+            elif category=="CAL-PROP" and cal_prop_flag == 'No': 
+                cas=row["PRODUCT"]
+                result_spec=row["SPEC_ID"]
+                spec_id=helper.finding_spec_details(spec_list,result_spec)
+                product_type=row["PRODUCT_TYPE"]
+                std_wg,componant_type=helper.find_std_weight(cas,product_type,spec_id,std_df)
+                if std_wg!='':
+                    cal_prop_flag="Yes"
+                    if gadsl_flag=="Yes" and cal_prop_flag=="Yes":
+                        break
+            if gadsl_flag=="Yes" and cal_prop_flag=="Yes":
+                break
+        if cal_prop_flag =="No":
+            generic_cas_info_list=helper.get_generic_cas_details(all_details_json)
+            for item in generic_cas_info_list:
+                cas_no=item.get("cas_no",config.hypen_delimiter)
+                generic_spec_list=[element for element in all_details_json if cas_no in all_details_json.get(element).get("cas_number")]
+                spec_str=(config.pipe_delimitter).join(generic_spec_list)
+                std_wg,componant_type=helper.find_std_weight(cas_no,"NUMCAS",spec_str,std_df)
+                if std_wg!='':
+                    cal_prop_flag="Yes"
+                    break
+    except Exception as e:
+        pass
+    return gadsl_flag,cal_prop_flag

@@ -21,6 +21,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
 def update_ontology_value(update_data):
     try:
+        logging.info(f'body {update_data}')
         if "ontology_Id" in update_data:
             status=edit_ontology_value(update_data) 
             # pass
@@ -41,7 +42,10 @@ def add_ontology_value(add_data):
         cursor.execute(insert_query)
         # return "added"
     except Exception as e:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception as e:
+            pass
         logging.info(f'error in updating {e}')
         status_code=400
         message=f"cannot be added because of {e}"
@@ -58,6 +62,9 @@ def add_ontology_value(add_data):
                 list_of_id=list(ontolgy_df["ID"].unique())
             sql_id=max(list_of_id)
             found_id=str(sql_id+1)
+            product_synonyms=add_data.get("ontologySynonyms","")
+            product=add_data.get("synonymsProductName","")
+            product_type=add_data.get("synonymsProductType","")
             doc={"ONTOLOGY_KEY":add_data.get("synonymsProductName",""),
             "ID":str(sql_id+1), 
             "KEY_TYPE":add_data.get("synonymsProductType",""),
@@ -67,7 +74,7 @@ def add_ontology_value(add_data):
             "UPDATED_DATE":current_date,
             "PROCESSED_FLAG":""}
             #update in change_audit_log table
-            audit_status=helper.update_in_change_audit_log(found_id,"Ontology Management",add_data.get('synonymsCreatedBy',''),"insert",current_date)
+            audit_status=helper.update_in_change_audit_log(found_id,"Ontology Management",add_data.get('synonymsCreatedBy',''),"insert",current_date,product_type,product,product_synonyms,"N")
             status_code=200
             if audit_status=="updated in change audit log successfully":
                 config.solr_ontology.add([doc])
@@ -76,32 +83,39 @@ def add_ontology_value(add_data):
             message="will be added soon"
     return [{"status":status_code,"message":message}]
     
-
 def edit_ontology_value(update_data):
     try:
         current_date=str(datetime.now(est))[:-9]
         conn=helper.SQL_connection()
         cursor=conn.cursor()
-        update_value=f"ONTOLOGY_KEY = '{update_data.get('synonymsProductName','')}',KEY_TYPE='{update_data.get('synonymsProductType','')}',ONTOLOGY_VALUE='{update_data.get('ontologySynonyms','')}',UPDATED_DATE='{current_date}'"
+        ontology_value=update_data.get('ontologySynonyms',"").replace("'","''")
+        update_value=f"ONTOLOGY_KEY = '{update_data.get('synonymsProductName','')}',KEY_TYPE='{update_data.get('synonymsProductType','')}',ONTOLOGY_VALUE='{ontology_value}',UPDATED_DATE='{current_date}',PROCESSED_FLAG='NULL'"
         update_query=f"update [momentive].[ontology] set {update_value} where id='{update_data.get('ontology_Id','-')}'"
         cursor.execute(update_query)
         # return "added"
     except Exception as e:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception as e:
+            pass
         logging.info(f'error in updating {e}')
         status_code=400
         message=f"cannot be updated because of {e}"
     else:
         try:
             conn.commit()
+            product_synonyms=update_data.get("ontologySynonyms","")
+            product=update_data.get("synonymsProductName","")
+            product_type=update_data.get("synonymsProductType","")
             #update in change_audit_log table
-            audit_status=helper.update_in_change_audit_log(update_data.get('ontology_Id','-'),"Ontology Management","PIH-admin","update",current_date)
+            audit_status=helper.update_in_change_audit_log(update_data.get('ontology_Id','-'),"Ontology Management",update_data.get("synonymsUpdatedBy","-"),"update",current_date,product_type,product,product_synonyms,"N")
             doc={
             "solr_id":update_data.get("solr_Id","-"),
             "ONTOLOGY_KEY":update_data.get("synonymsProductName",""),
             "KEY_TYPE":update_data.get("synonymsProductType",""),
             "ONTOLOGY_VALUE":update_data.get("ontologySynonyms",""),
-            "UPDATED_DATE":current_date
+            "UPDATED_DATE":current_date,
+            "PROCESSED_FLAG":"NULL"
             }
             status_code=200
             if audit_status=="updated in change audit log successfully":

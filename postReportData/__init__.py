@@ -39,15 +39,22 @@ def get_report_data_details(req_body):
                     else:
                         date_format=date_parse
                     specid=data.get("SUBID")
-                    namprod=all_details_json.get(specid).get("namprod")
-                    material=all_details_json.get(specid).get("material_number")
+                    namprod=all_details_json.get(specid).get("namprod",[])
+                    material=all_details_json.get(specid).get("material_number",[])
+                    material_str=""
+                    mat_list=[mat.lstrip('0') for mat in material]
+                    material_str=",".join(mat_list)
                     region=str(data.get("RGVID","")).strip()
                     category=str(data.get("REPTY",config.hypen_delimiter)).strip()
                     variant_region=""
+                    sales_code=""
                     if region !='' and "MSDS" in category:
                         # if "MSDS_" in region:
                         edited_region=region.replace("_"," ").strip()
-                        variant_region=config.report_data_region_code.get(edited_region,"")
+                        region_code=config.report_data_region_code.get(edited_region,[])
+                        if len(region_code)>1:
+                            variant_region=region_code[0]
+                            sales_code=region_code[1]
                         # elif "MSDS " in region:
                         #     edited_region=region.replace("MSDS ","").strip()
                         #     variant_region=config.report_data_region_code.get(edited_region,"")
@@ -55,11 +62,12 @@ def get_report_data_details(req_body):
                         "category":str(data.get("REPTY",config.hypen_delimiter)).strip(),
                         "generation_Variant":str(data.get("RGVID",config.hypen_delimiter)).strip(),
                         "region":variant_region,
+                        "sales_code":sales_code,
                         "language":str(data.get("LANGU",config.hypen_delimiter)).strip(),
                         "version":str(data.get("VERSN",config.hypen_delimiter)).strip(),
                         "released_on":date_format,             
                         "spec_id":specid+(config.hypen_delimiter)+(config.comma_delimiter).join(namprod),
-                        "material_details":(config.comma_delimiter).join(material),
+                        "material_details":material_str,
                         "status":str(data.get("STATS",config.hypen_delimiter)).strip(),
                     }
                     report_list.append(report_json)
