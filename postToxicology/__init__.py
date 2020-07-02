@@ -159,8 +159,8 @@ def get_toxicology_details(req_body):
                 }
                 json_list.append(json)
             else:
-                tonnage_band_limit=req_body.get("tonnage_Band","ALL")
-                product_name=req_body.get("product","")
+                tonnage_band_limit=req_body.get("tonnage_band","ALL")
+                product_name=req_body.get("product").get("name","")
                 country=req_body.get("country",[])
                 tracker_query=config.registration_tracker_query.format(tonnage_band_limit,product_name)
                 group_test_query=config.select_query.format(config.view_connector,config.group_test_view_name)
@@ -181,11 +181,11 @@ def get_toxicology_details(req_body):
                         total_cost=0
                     study_type_cost=get_study_type_subtotal(tracker_sql_df)
                     total_estimated_time=get_estimated_time(tracker_sql_df,group_test_df)       
-                    registartion_tracker_list=get_json_format_data(tracker_sql_list)
+                    registartion_tracker_list=get_json_format_data(tracker_sql_list,country)
                     json_make={
-                        "total_Cost":str(total_cost),
+                        "total_Cost":str(helper.set_two_decimal_points(total_cost)),
                         "study_Type_Cost":study_type_cost,
-                        "total_Estimated_Time":str(total_estimated_time),
+                        "total_Estimated_Time":str(helper.set_two_decimal_points(total_estimated_time)),
                         "registartion_Data":registartion_tracker_list
                     }
                     json_list.append(json_make)
@@ -272,12 +272,14 @@ def get_estimated_time(tracker_sql_df,group_test_df):
         pass
     return estimated_time
 
-def get_json_format_data(tracker_values):
+def get_json_format_data(tracker_values,country):
     try:
         json_list=[]
         for data in tracker_values:
             try:
                 json_make={}
+                if data.get("CountryName",config.hypen_delimiter).strip() not in country and country[0] != "ALL":
+                    continue
                 json_make["country_Name"]=data.get("CountryName",config.hypen_delimiter)
                 json_make["tonnage_Band"]=data.get("TonnageBand",config.hypen_delimiter)
                 json_make["study_Type"]=data.get("StudyType",config.hypen_delimiter)
@@ -312,6 +314,7 @@ def get_country_list():
         json_list=[]
         query=config.select_query.format(config.table_connector,config.country_table)
         df=helper.get_data_from_sql_table(query)
+        json_list.append({"name":"ALL"})
         if "CountryName" in df.columns:
             for item in list(df["CountryName"].unique()):
                 json={}

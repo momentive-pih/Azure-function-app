@@ -417,6 +417,11 @@ def set_decimal_points(value):
         value=float(value)
     return "{:.4f}".format(value)
 
+def set_two_decimal_points(value):
+    if type(value)!=float:
+        value=float(value)
+    return "{:.2f}".format(value)
+
 def calculate_ppm_ppb(value,unit):
     if unit.lower()=="ppm":
         sub_value=(config.ppm)*(float(value))

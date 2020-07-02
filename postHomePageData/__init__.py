@@ -136,20 +136,10 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
                         positive_country.append(place)
                     elif key_text.lower().strip() in config.not_in_compliance_notification_status:
                         negative_country.append(place)
-                    # if ("y" in key_text.lower() and "positive" in key_text.lower()):
-                    #     positive_country.append(place)
-                    # elif ("n" in key_text.lower() and "negative" in key_text.lower()):
-                    #     negative_country.append(place)
                     else:
                         others.append(place)
                 except Exception as e:
                     pass
-            # if len(negative_country)>4:
-            #     negative_country=negative_country[:4]
-            # if len(positive_country)>4:
-            #     positive_country=positive_country[:4]
-            # negative_str=(config.comma_delimiter).join(negative_country)
-            # positive_str=(config.comma_delimiter).join(positive_country)
         product_compliance.append({"image":config.home_icon_product_compliance})
         product_compliance.append({"In Compliance Regulatory notification count":len(positive_country)})
         product_compliance.append({"Not in Compliance Regulatory notification count":len(negative_country)}) 
@@ -193,10 +183,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
             std_flag=''
             summary_df=unstructure_df[unstructure_df["CATEGORY"]=="Toxicology-summary"]
             product_type_list=list(summary_df["PRODUCT_TYPE"].unique())
-            # if len(product_type_list)>1:
-            #     summary_flag="Yes"
             if (len(product_type_list)==1) and ("NUMCAS" in product_type_list):
-                # for item in unstructure_values:
                 for index, row in summary_df.iterrows():
                     result_spec=row["SPEC_ID"]
                     spec_id=helper.finding_spec_details(spec_list,result_spec)
@@ -246,8 +233,7 @@ def home_page_details(all_details_json,spec_list,arranged_level_json):
         #restricted_sub
         gadsl_fg='No'
         cal_fg="No"
-        if ("GADSL" in founded_category) or ("CAL-PROP" in founded_category):
-            gadsl_fg,cal_fg=find_restricted_data(unstructure_df,all_details_json,spec_list)
+        gadsl_fg,cal_fg=find_restricted_data(unstructure_df,all_details_json,spec_list)
         restricted_sub.append({"image": config.home_icon_restricted_substance})
         restricted_sub.append({"Components Present in GADSL": gadsl_fg})
         restricted_sub.append({"Components Present in Cal Prop 65":cal_fg})
