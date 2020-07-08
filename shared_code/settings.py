@@ -104,6 +104,7 @@ ontology_assigned_template={
                 "Toxicology":[],"category":"Toxicology"
             }
         }
+home_page_category=["EU_REG_STATUS","US_REG_STATUS","LATAM_REG_STATUS","US-FDA","EU-FDA","GADSL","CAL-PROP","SAP-BW","Heavy metals","Toxicology","Toxicology-summary"]     
 relable_column=["IDCAT","SUBID","IDTYP","LANGU","IDTXT","DELFLG"]
 ghs_label=["REBAS","SYMBL","SIGWD","HAZST","PRSTG","REMAR","ADDIN"]
 relable_column_str="IDCAT,SUBID,IDTYP,LANGU,IDTXT"

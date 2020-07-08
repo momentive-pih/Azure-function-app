@@ -625,7 +625,7 @@ def find_std_weight(product,product_type,spec_id,std_df):
         if "CAS" in list(std_df.columns) and "SUBID" in list(std_df.columns):
             std_find=std_df[(std_df["CAS"]==product) & (std_df["SUBID"].isin(specid_list))]
     if len(std_find)==0:
-        return std_weight 
+        return std_weight,componant_type
     else:
         if len(std_find)>0 and ("CVALU" in std_find.columns) and ("COMPT" in std_find.columns):
             std_cvalue=std_find[["CVALU","CUNIT","COMPT"]]

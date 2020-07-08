@@ -37,7 +37,7 @@ def add_ontology_value(add_data):
         conn=helper.SQL_connection()
         cursor=conn.cursor()
         ontology_value=add_data.get('ontologySynonyms',"").replace("'","''")
-        inser_value=f"'{add_data.get('synonymsProductName','')}','{add_data.get('synonymsProductType','')}','{ontology_value}','{add_data.get('synonymsCreatedBy','')}','{current_date}','{current_date}','NULL'" 
+        inser_value=f"'{add_data.get('synonymsProductName','')}','{add_data.get('synonymsProductType','')}','{ontology_value}','{add_data.get('synonymsCreatedBy','')}','{current_date}','{current_date}','NULL',1" 
         insert_query=f"insert into [momentive].[ontology] values ({inser_value})"
         cursor.execute(insert_query)
         # return "added"
@@ -72,7 +72,8 @@ def add_ontology_value(add_data):
             "CREATED_BY":add_data.get('synonymsCreatedBy',''),
             "CREATED_DATE":current_date,
             "UPDATED_DATE":current_date,
-            "PROCESSED_FLAG":""}
+            "PROCESSED_FLAG":"",
+            "IS_RELEVANT":"1"}
             #update in change_audit_log table
             audit_status=helper.update_in_change_audit_log(found_id,"Ontology Management",add_data.get('synonymsCreatedBy',''),"insert",current_date,product_type,product,product_synonyms,"N")
             status_code=200

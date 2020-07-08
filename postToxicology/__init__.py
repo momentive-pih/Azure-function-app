@@ -1,9 +1,9 @@
 import logging
-import json
 import azure.functions as func
 import pandas as pd
 import os 
 import pysolr
+import json 
 from __app__.shared_code import settings as config
 from __app__.shared_code import helper
 
@@ -40,8 +40,10 @@ def get_toxicology_details(req_body):
                         ontology_value=item.get("ONTOLOGY_VALUE","")
                         spec_id=helper.finding_spec_details(spec_list,result_spec)
                         product=item.get("PRODUCT",config.hypen_delimiter)
-                        product_type=item.get("PRODUCT_TYPE",config.hypen_delimiter)
-                        datastr=json.loads(item.get("DATA_EXTRACT"))
+                        product_type=item.get("PRODUCT_TYPE",config.hypen_delimiter)  
+                        extract_data= item.get("DATA_EXTRACT","")  
+                        import json
+                        datastr=json.loads(extract_data)
                         category=item.get("CATEGORY","")
                         file_path=datastr.get("file_path",config.hypen_delimiter)
                         file_path=helper.replace_char_in_url(file_path)
